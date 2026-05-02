@@ -9,6 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { InactiveAccountCard } from "@/components/admin/InactiveAccountCard";
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -18,7 +19,8 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
-  const { login, isLoggingIn } = useAuth();
+  const { login, isLoggingIn, inactiveAccount, clearInactiveAccount } =
+    useAuth();
   const [showPass, setShowPass] = useState(false);
   const { t } = useTranslation();
 
@@ -53,6 +55,15 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {inactiveAccount && (
+            <div className="mb-6">
+              <InactiveAccountCard
+                inactiveAccount={inactiveAccount}
+                onTryAgain={clearInactiveAccount}
+              />
+            </div>
+          )}
+
           <form
             onSubmit={handleSubmit((data) => login(data))}
             className="space-y-4"
@@ -86,15 +97,26 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-between">
               <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <input type="checkbox" className="rounded border-gray-300 text-amber-500 focus:ring-amber-400" />
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+                />
                 {t("pawmart.auth.rememberMe")}
               </label>
-              <button type="button" className="text-sm text-amber-500 hover:underline">
+              <button
+                type="button"
+                className="text-sm text-amber-500 hover:underline"
+              >
                 {t("pawmart.auth.forgotPassword")}
               </button>
             </div>
 
-            <Button type="submit" size="lg" loading={isLoggingIn} className="w-full">
+            <Button
+              type="submit"
+              size="lg"
+              loading={isLoggingIn}
+              className="w-full"
+            >
               {t("pawmart.auth.signIn")}
             </Button>
           </form>

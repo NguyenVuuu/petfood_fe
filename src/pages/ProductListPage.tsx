@@ -22,12 +22,12 @@ export default function ProductListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { t } = useTranslation();
-  const [searchInput, setSearchInput] = useState(
-    searchParams.get("search") ?? ""
-  );
+  const searchFromUrl = searchParams.get("search") ?? "";
+  const categoryIdFromUrl = searchParams.get("categoryId") ?? "";
+  const [searchInput, setSearchInput] = useState(searchFromUrl);
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<FilterState>({
-    categoryId: searchParams.get("categoryId") ?? "",
+    categoryId: categoryIdFromUrl,
     minPrice: "",
     maxPrice: "",
     sortBy: "",
@@ -38,21 +38,29 @@ export default function ProductListPage() {
   const { data: catData } = useCategoryList({ limit: 100, isActive: true });
   const categories = catData?.items ?? [];
 
-  const [sortBy, sortOrder] = (filters.sortBy || "createdAt:desc").split(":") as [
-    "createdAt" | "price" | "name",
-    "asc" | "desc"
-  ];
+  const [sortBy, sortOrder] = (filters.sortBy || "createdAt:desc").split(
+    ":",
+  ) as ["createdAt" | "price" | "name", "asc" | "desc"];
 
+  // Current product-service supports: keyword, categoryId, page, limit, sortBy, sortOrder.
+  // Price filters remain UI-only until backend exposes those query params.
   const { data, isLoading } = useProducts({
     page,
     limit: 12,
-    search: debouncedSearch || undefined,
+    keyword: debouncedSearch || undefined,
     categoryId: filters.categoryId || undefined,
-    minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
-    maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
     sortBy,
     sortOrder,
   });
+
+  useEffect(() => {
+    setSearchInput((prev) => (prev === searchFromUrl ? prev : searchFromUrl));
+    setFilters((prev) =>
+      prev.categoryId === categoryIdFromUrl
+        ? prev
+        : { ...prev, categoryId: categoryIdFromUrl },
+    );
+  }, [searchFromUrl, categoryIdFromUrl]);
 
   useEffect(() => {
     setPage(1);
@@ -129,7 +137,10 @@ export default function ProductListPage() {
             <div className="absolute right-0 top-0 h-full w-80 overflow-y-auto bg-white p-6 shadow-xl dark:bg-gray-950">
               <FilterSidebar
                 filters={filters}
-                onFilterChange={(f) => { setFilters(f); setSidebarOpen(false); }}
+                onFilterChange={(f) => {
+                  setFilters(f);
+                  setSidebarOpen(false);
+                }}
                 categories={categories}
               />
             </div>
@@ -138,7 +149,11 @@ export default function ProductListPage() {
 
         {/* Main content */}
         <div className="flex-1 space-y-6">
-          <ProductGrid products={products} isLoading={isLoading} skeletonCount={12} />
+          <ProductGrid
+            products={products}
+            isLoading={isLoading}
+            skeletonCount={12}
+          />
           {!isLoading && totalPages > 1 && (
             <Pagination
               page={page}

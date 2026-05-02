@@ -1,61 +1,144 @@
-import { useState } from "react";
-import { Plus, Search, RefreshCw, FolderTree } from "lucide-react";
-import { motion } from "framer-motion";
+import { useEffect, useMemo, useState } from "react";
+import { FolderOpen, Plus, RefreshCw } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import {
   useCategoryTree,
   useCreateCategory,
   useUpdateCategory,
   useDeleteCategory,
 } from "@/hooks/useCategories";
-import { CategoryTreeNode } from "@/components/CategoryTree/CategoryTreeNode";
+import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
+import { useDebounce } from "@/hooks/useDebounce";
+import { CategoryTabs } from "@/components/admin/CategoryTabs";
+import { CategoryTree } from "@/components/admin/CategoryTree";
+import { ProductFilters } from "@/components/admin/ProductFilters";
+import { ProductTable } from "@/components/admin/ProductTable";
 import { CategoryForm } from "@/components/CategoryForm/CategoryForm";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { CategoryNode, Category, CategoryFormPayload } from "@/types";
+import { Badge } from "@/components/ui/Badge";
+import { Pagination } from "@/components/ui/Pagination";
+import { CategoryNode, Category, CategoryFormPayload, Product } from "@/types";
 import { flattenTree } from "@/services/category.service";
 
-// ─── Skeleton ─────────────────────────────────────────────────────────────────
-function TreeSkeleton() {
-  return (
-    <div className="space-y-2 p-4">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div
-          key={i}
-          className="h-10 animate-pulse rounded-xl bg-gray-100 dark:bg-gray-800"
-          style={{ width: `${100 - i * 5}%` }}
-        />
-      ))}
-    </div>
-  );
-}
+const DEFAULT_SORT = "createdAt:desc";
+const getCategoryId = (category: Pick<Category, "_id" | "id">) =>
+  category._id ?? category.id;
 
 export default function AdminCategoryPage() {
-  const { data: tree = [], isLoading, refetch } = useCategoryTree();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const categoryIdFromUrl = searchParams.get("categoryId") ?? "";
+
+  const {
+    data: tree = [],
+    isLoading,
+    isFetching: isFetchingTree,
+    refetch,
+  } = useCategoryTree();
   const createMutation = useCreateCategory();
   const updateMutation = useUpdateCategory();
   const deleteMutation = useDeleteCategory();
+  const deleteProductMutation = useDeleteProduct();
 
-  const [search, setSearch] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] =
+    useState(categoryIdFromUrl);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const [sortValue, setSortValue] = useState(DEFAULT_SORT);
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Category | null>(null);
   const [defaultParentId, setDefaultParentId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CategoryNode | null>(null);
+  const [deleteProductTarget, setDeleteProductTarget] =
+    useState<Product | null>(null);
 
-  // Filter tree by search
-  const filterTree = (nodes: CategoryNode[], q: string): CategoryNode[] => {
-    if (!q) return nodes;
-    return nodes.reduce<CategoryNode[]>((acc, node) => {
-      const children = filterTree(node.children ?? [], q);
-      if (node.name.toLowerCase().includes(q.toLowerCase()) || children.length > 0) {
-        acc.push({ ...node, children });
-      }
-      return acc;
-    }, []);
+  const debouncedProductSearch = useDebounce(productSearch, 350);
+  const flatList = useMemo(() => flattenTree(tree), [tree]);
+  const selectedCategory =
+    flatList.find(
+      (category) => getCategoryId(category) === selectedCategoryId,
+    ) ?? null;
+  const [sortBy, sortOrder] = sortValue.split(":") as [
+    "createdAt" | "updatedAt" | "name" | "price",
+    "asc" | "desc",
+  ];
+
+  const {
+    data: productData,
+    isLoading: isLoadingProducts,
+    isFetching: isFetchingProducts,
+    refetch: refetchProducts,
+  } = useProducts(
+    {
+      page,
+      limit: 10,
+      keyword: debouncedProductSearch || undefined,
+      categoryId: selectedCategoryId || undefined,
+      sortBy,
+      sortOrder,
+    },
+    { enabled: !!selectedCategoryId },
+  );
+
+  const products = selectedCategoryId ? (productData?.items ?? []) : [];
+  const totalProducts = selectedCategoryId
+    ? (productData?.meta?.total ?? 0)
+    : 0;
+  const totalPages = selectedCategoryId
+    ? (productData?.meta?.totalPages ?? 1)
+    : 1;
+
+  const syncCategoryToUrl = (categoryId: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (categoryId) {
+      nextParams.set("categoryId", categoryId);
+    } else {
+      nextParams.delete("categoryId");
+    }
+    setSearchParams(nextParams, { replace: true });
   };
 
-  const displayTree = filterTree(tree, search);
-  const flatList = flattenTree(tree);
+  useEffect(() => {
+    setSelectedCategoryId((prev) =>
+      prev === categoryIdFromUrl ? prev : categoryIdFromUrl,
+    );
+  }, [categoryIdFromUrl]);
+
+  useEffect(() => {
+    if (!flatList.length) return;
+    if (selectedCategoryId && selectedCategory) return;
+
+    const fallbackCategoryId = getCategoryId(flatList[0]);
+    setSelectedCategoryId(fallbackCategoryId);
+
+    if (categoryIdFromUrl !== fallbackCategoryId) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set("categoryId", fallbackCategoryId);
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [
+    categoryIdFromUrl,
+    flatList,
+    searchParams,
+    selectedCategory,
+    selectedCategoryId,
+    setSearchParams,
+  ]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedCategoryId, debouncedProductSearch, sortValue]);
+
+  useEffect(() => {
+    if (selectedCategoryId && !selectedCategory) {
+      const fallbackCategoryId = flatList.length
+        ? getCategoryId(flatList[0])
+        : "";
+      setSelectedCategoryId(fallbackCategoryId);
+      syncCategoryToUrl(fallbackCategoryId);
+    }
+  }, [flatList, selectedCategory, selectedCategoryId]);
 
   const openCreate = (parentId?: string) => {
     setEditTarget(null);
@@ -81,99 +164,181 @@ export default function AdminCategoryPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    const targetId = getCategoryId(deleteTarget);
     await deleteMutation.mutateAsync(deleteTarget._id);
+    if (selectedCategoryId === targetId) {
+      setSelectedCategoryId("");
+      syncCategoryToUrl("");
+    }
     setDeleteTarget(null);
   };
 
+  const handleDeleteProduct = async () => {
+    if (!deleteProductTarget) return;
+    await deleteProductMutation.mutateAsync(deleteProductTarget._id);
+    setDeleteProductTarget(null);
+  };
+
+  const handleSelectCategory = (node: Category) => {
+    const categoryId = getCategoryId(node);
+    setSelectedCategoryId(categoryId);
+    setPage(1);
+    syncCategoryToUrl(categoryId);
+  };
+
+  const handleClearProductFilters = () => {
+    setProductSearch("");
+    setSortValue(DEFAULT_SORT);
+    setPage(1);
+  };
+
   const isMutating = createMutation.isPending || updateMutation.isPending;
+  const returnTo = selectedCategoryId
+    ? `/admin/categories?categoryId=${encodeURIComponent(selectedCategoryId)}`
+    : "/admin/categories";
+  const addProductHref = selectedCategoryId
+    ? `/admin/products/new?categoryId=${encodeURIComponent(
+        selectedCategoryId,
+      )}&returnTo=${encodeURIComponent(returnTo)}`
+    : "/admin/products/new";
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Categories</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Categories
+          </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {flatList.length} total categories
+            Category-first product management workspace for large catalogs.
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw size={15} className={isLoading ? "animate-spin" : ""} />
-            Refresh
-          </Button>
-          <Button onClick={() => openCreate()}>
-            <Plus size={16} /> Add Category
-          </Button>
-        </div>
-      </div>
-
-      {/* Search */}
-      <Input
-        placeholder="Search categories..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        leftIcon={<Search size={14} />}
-        className="max-w-sm"
-      />
-
-      {/* Tree */}
-      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        {/* Column headers */}
-        <div className="flex items-center gap-2 border-b border-gray-100 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-800/50">
-          <FolderTree size={15} className="text-amber-500" />
-          <span className="flex-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Name / Slug
-          </span>
-          <span className="hidden text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:block">
-            Level
-          </span>
-          <span className="hidden text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:block">
-            Group
-          </span>
-          <span className="w-24 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            Actions
-          </span>
-        </div>
-
-        {isLoading ? (
-          <TreeSkeleton />
-        ) : displayTree.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-4xl">🗂️</p>
-            <p className="mt-3 font-medium text-gray-500 dark:text-gray-400">
-              {search ? "No categories match your search" : "No categories yet"}
-            </p>
-            {!search && (
-              <Button className="mt-4" onClick={() => openCreate()}>
-                <Plus size={15} /> Create first category
-              </Button>
-            )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Badge variant="info">Category-first workflow</Badge>
+            <Badge variant="outline">
+              {flatList.length} categories cached via React Query
+            </Badge>
           </div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="divide-y divide-gray-50 py-2 dark:divide-gray-800/50"
-          >
-            {displayTree.map((node) => (
-              <CategoryTreeNode
-                key={node._id}
-                node={node}
-                depth={0}
-                onEdit={openEdit}
-                onDelete={setDeleteTarget}
-                onAddChild={(parentId) => openCreate(parentId)}
+        </div>
+        {selectedCategory && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => refetchProducts()}
+              disabled={isFetchingProducts}
+            >
+              <RefreshCw
+                size={15}
+                className={isFetchingProducts ? "animate-spin" : ""}
               />
-            ))}
-          </motion.div>
+              Refresh products
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => openCreate(getCategoryId(selectedCategory))}
+            >
+              <Plus size={16} /> Add child category
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* Create / Edit modal */}
+      <CategoryTabs
+        categories={flatList}
+        selectedCategoryId={selectedCategoryId}
+        onSelect={handleSelectCategory}
+      />
+
+      <div className="grid gap-6 xl:grid-cols-[360px,minmax(0,1fr)]">
+        <CategoryTree
+          nodes={tree}
+          totalCount={flatList.length}
+          isLoading={isLoading}
+          isRefreshing={isFetchingTree}
+          search={categorySearch}
+          selectedCategoryId={selectedCategoryId}
+          onSearchChange={setCategorySearch}
+          onRefresh={() => refetch()}
+          onCreateRoot={() => openCreate()}
+          onSelect={handleSelectCategory}
+          onEdit={openEdit}
+          onDelete={setDeleteTarget}
+          onAddChild={(parentId) => openCreate(parentId)}
+        />
+
+        <div className="space-y-4">
+          {selectedCategory ? (
+            <>
+              <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <FolderOpen size={18} className="text-amber-500" />
+                      <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                        {selectedCategory.name}
+                      </h2>
+                      <Badge variant="outline">
+                        Level {selectedCategory.level}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Path: /{selectedCategory.path}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <ProductFilters
+                selectedCategoryName={selectedCategory.name}
+                total={totalProducts}
+                search={productSearch}
+                sortValue={sortValue}
+                addProductHref={addProductHref}
+                isFetching={isFetchingProducts}
+                onSearchChange={setProductSearch}
+                onSortChange={setSortValue}
+                onClearFilters={handleClearProductFilters}
+              />
+
+              <ProductTable
+                products={products}
+                isLoading={isLoadingProducts}
+                categoryName={selectedCategory.name}
+                selectedCategoryId={selectedCategoryId}
+                returnTo={returnTo}
+                onDelete={setDeleteProductTarget}
+              />
+
+              {!isLoadingProducts && totalPages > 1 && (
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
+              )}
+            </>
+          ) : (
+            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-gray-200 bg-white p-8 text-center shadow-sm dark:border-gray-700 dark:bg-gray-900">
+              <div className="max-w-md space-y-3">
+                <p className="text-5xl">🌿</p>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  No category available yet
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Tạo category đầu tiên để bắt đầu quản lý product theo từng tab
+                  loại sản phẩm.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
       <Modal
         isOpen={formOpen}
-        onClose={() => { setFormOpen(false); setEditTarget(null); }}
+        onClose={() => {
+          setFormOpen(false);
+          setEditTarget(null);
+        }}
         title={editTarget ? `Edit: ${editTarget.name}` : "New Category"}
         size="md"
       >
@@ -182,12 +347,14 @@ export default function AdminCategoryPage() {
           defaultParentId={defaultParentId}
           tree={tree}
           onSubmit={handleSubmit}
-          onCancel={() => { setFormOpen(false); setEditTarget(null); }}
+          onCancel={() => {
+            setFormOpen(false);
+            setEditTarget(null);
+          }}
           isLoading={isMutating}
         />
       </Modal>
 
-      {/* Delete confirm modal */}
       <Modal
         isOpen={!!deleteTarget}
         onClose={() => setDeleteTarget(null)}
@@ -216,7 +383,45 @@ export default function AdminCategoryPage() {
             >
               Delete
             </Button>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)} className="flex-1">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={!!deleteProductTarget}
+        onClose={() => setDeleteProductTarget(null)}
+        title="Delete Product"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Delete
+            <span className="mx-1 font-semibold text-gray-900 dark:text-white">
+              {deleteProductTarget?.name}
+            </span>
+            from this category? This action cannot be undone.
+          </p>
+          <div className="flex gap-3">
+            <Button
+              variant="danger"
+              onClick={handleDeleteProduct}
+              loading={deleteProductMutation.isPending}
+              className="flex-1"
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteProductTarget(null)}
+              className="flex-1"
+            >
               Cancel
             </Button>
           </div>

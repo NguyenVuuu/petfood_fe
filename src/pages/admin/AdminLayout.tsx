@@ -1,8 +1,9 @@
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Package,
   FolderTree,
+  ShoppingCart,
+  Users,
   LogOut,
   ChevronRight,
   Menu,
@@ -12,9 +13,25 @@ import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { to: "/admin", end: true, icon: <LayoutDashboard size={18} />, label: "Dashboard" },
-  { to: "/admin/products", end: false, icon: <Package size={18} />, label: "Products" },
-  { to: "/admin/categories", end: false, icon: <FolderTree size={18} />, label: "Categories" },
+  {
+    to: "/admin",
+    end: true,
+    icon: <LayoutDashboard size={18} />,
+    label: "Dashboard",
+  },
+  {
+    to: "/admin/categories",
+    end: false,
+    icon: <FolderTree size={18} />,
+    label: "Categories",
+  },
+  {
+    to: "/admin/orders",
+    end: false,
+    icon: <ShoppingCart size={18} />,
+    label: "Orders",
+  },
+  { to: "/admin/users", end: false, icon: <Users size={18} />, label: "Users" },
 ];
 
 export function AdminLayout() {
@@ -53,7 +70,7 @@ export function AdminLayout() {
                 "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
                 isActive
                   ? "bg-amber-500 text-white shadow-md"
-                  : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                  : "text-gray-400 hover:bg-gray-800 hover:text-white",
               )
             }
           >
@@ -67,8 +84,18 @@ export function AdminLayout() {
       {/* User */}
       <div className="border-t border-gray-800 p-4">
         <div className="mb-3 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/20 text-sm font-bold text-amber-400">
-            {user?.fullName?.[0]?.toUpperCase()}
+          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-amber-500/20 ring-1 ring-amber-500/30">
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-sm font-bold text-amber-400">
+                {user?.fullName?.[0]?.toUpperCase()}
+              </span>
+            )}
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-medium text-white">
@@ -79,7 +106,7 @@ export function AdminLayout() {
         </div>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-2 rounded-xl px-4 py-2 text-sm text-red-400 transition-colors hover:bg-red-900/20 hover:text-red-300"
+          className="flex min-h-12 w-full items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition-colors hover:bg-red-900/20 hover:text-red-300"
         >
           <LogOut size={16} /> Logout
         </button>

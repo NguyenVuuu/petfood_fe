@@ -1,8 +1,17 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ShoppingCart, Search, Heart, User, Menu, X,
-  Sun, Moon, LogOut, LayoutDashboard, ChevronDown,
+  ShoppingCart,
+  Search,
+  Heart,
+  User,
+  Menu,
+  X,
+  Sun,
+  Moon,
+  LogOut,
+  LayoutDashboard,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
@@ -12,7 +21,10 @@ import { useWishlist } from "@/hooks/useWishlist";
 import { useDebounce } from "@/hooks/useDebounce";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
-import { MegaMenu, MobileCategoryMenu } from "@/components/CategoryMenu/MegaMenu";
+import {
+  MegaMenu,
+  MobileCategoryMenu,
+} from "@/components/CategoryMenu/MegaMenu";
 
 export function Navbar() {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
@@ -25,7 +37,9 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+  const [dark, setDark] = useState(() =>
+    document.documentElement.classList.contains("dark"),
+  );
 
   const debouncedSearch = useDebounce(searchQuery, 400);
 
@@ -37,7 +51,9 @@ export function Navbar() {
 
   useEffect(() => {
     if (debouncedSearch.trim()) {
-      navigate(`/products?search=${encodeURIComponent(debouncedSearch.trim())}`);
+      navigate(
+        `/products?search=${encodeURIComponent(debouncedSearch.trim())}`,
+      );
     }
   }, [debouncedSearch, navigate]);
 
@@ -54,7 +70,7 @@ export function Navbar() {
         "sticky top-0 z-40 w-full transition-all duration-300",
         scrolled
           ? "bg-white/95 shadow-md backdrop-blur-md dark:bg-gray-950/95"
-          : "bg-white dark:bg-gray-950"
+          : "bg-white dark:bg-gray-950",
       )}
     >
       {/* ── Top bar ── */}
@@ -72,7 +88,10 @@ export function Navbar() {
         {/* Search */}
         <div className="hidden max-w-xs flex-1 md:flex">
           <div className="relative w-full">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search
+              size={16}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
             <input
               type="text"
               placeholder={t("pawmart.search.placeholder")}
@@ -95,7 +114,10 @@ export function Navbar() {
 
           <LanguageSwitcher />
 
-          <Link to="/wishlist" className="relative rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
+          <Link
+            to="/wishlist"
+            className="relative rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+          >
             <Heart size={18} />
             {wishlistItems.length > 0 && (
               <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
@@ -104,7 +126,10 @@ export function Navbar() {
             )}
           </Link>
 
-          <Link to="/cart" className="relative rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
+          <Link
+            to="/cart"
+            className="relative rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+          >
             <ShoppingCart size={18} />
             {totalItems > 0 && (
               <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
@@ -119,8 +144,18 @@ export function Navbar() {
                 onClick={() => setUserMenuOpen((v) => !v)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               >
-                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-100 text-xs font-bold text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-                  {user?.fullName?.[0]?.toUpperCase()}
+                <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-amber-100 ring-1 ring-amber-200 dark:bg-amber-900/30 dark:ring-amber-800">
+                  {user?.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.fullName}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center text-xs font-bold text-amber-600 dark:text-amber-400">
+                      {user?.fullName?.[0]?.toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <span className="max-w-[100px] truncate">{user?.fullName}</span>
                 <ChevronDown size={14} />
@@ -137,14 +172,26 @@ export function Navbar() {
                       <Link
                         to="/admin"
                         onClick={() => setUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                        className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                       >
-                        <LayoutDashboard size={14} /> {t("pawmart.products.adminDashboard")}
+                        <LayoutDashboard size={14} />{" "}
+                        {t("pawmart.products.adminDashboard")}
                       </Link>
                     )}
+                    <Link
+                      to="/account/profile"
+                      onClick={() => setUserMenuOpen(false)}
+                      className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                    >
+                      <User size={14} />
+                      My Account
+                    </Link>
                     <button
-                      onClick={() => { logout(); setUserMenuOpen(false); }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      onClick={() => {
+                        logout();
+                        setUserMenuOpen(false);
+                      }}
+                      className="flex min-h-11 w-full items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
                       <LogOut size={14} /> {t("pawmart.products.logout")}
                     </button>
@@ -189,7 +236,10 @@ export function Navbar() {
             <div className="space-y-1 p-4">
               {/* Mobile search */}
               <div className="relative mb-3">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <Search
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
                 <input
                   type="text"
                   placeholder={t("pawmart.search.placeholder")}
@@ -219,14 +269,24 @@ export function Navbar() {
                       <Link
                         to="/admin"
                         onClick={() => setMenuOpen(false)}
-                        className="block rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
+                        className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                       >
                         {t("pawmart.products.adminDashboard")}
                       </Link>
                     )}
+                    <Link
+                      to="/account/profile"
+                      onClick={() => setMenuOpen(false)}
+                      className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
+                    >
+                      My Account
+                    </Link>
                     <button
-                      onClick={() => { logout(); setMenuOpen(false); }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                      onClick={() => {
+                        logout();
+                        setMenuOpen(false);
+                      }}
+                      className="min-h-11 w-full rounded-lg px-3 py-3 text-left text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
                       {t("pawmart.products.logout")}
                     </button>

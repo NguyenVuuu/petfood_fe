@@ -1,16 +1,43 @@
 // ─── Auth ────────────────────────────────────────────────────────────────────
 export interface User {
-  _id: string;
+  id?: string;
+  _id?: string;
   fullName: string;
   email: string;
   role: "user" | "admin";
+  isActive?: boolean;
+  inactiveReason?: string | null;
+  inactiveAt?: string | null;
+  lastLoginAt?: string | null;
+  reactivationRequestedAt?: string | null;
+  avatarUrl?: string;
   createdAt: string;
+  updatedAt?: string;
+}
+
+export interface UserListParams {
+  page?: number;
+  limit?: number;
+  email?: string;
+  status?: "active" | "inactive";
+}
+
+export interface UserListResponse {
+  items: User[];
+  meta: ProductListMeta;
 }
 
 export interface AuthResponse {
   message: string;
   accessToken: string;
   user: User;
+}
+
+export interface InactiveLoginResponse {
+  message: "Your account is inactive" | string;
+  reason: string;
+  canRequestReactivation: boolean;
+  userId: string;
 }
 
 export interface LoginPayload {
@@ -26,8 +53,10 @@ export interface RegisterPayload {
 
 // ─── Category ────────────────────────────────────────────────────────────────
 export interface Category {
-  id: string;       // backend toDto() trả về "id" không phải "_id"
+  _id: string; // /categories/tree returns Mongo _id and also mirrors it to id
+  id: string; // backend toDto() trả về "id" không phải "_id"
   name: string;
+  description?: string;
   slug: string;
   parentId?: string | null;
   level: number;
@@ -58,6 +87,7 @@ export interface CategoryListResponse {
 
 export interface CategoryFormPayload {
   name: string;
+  description?: string;
   parentId?: string | null;
   menuGroup?: string;
   menuOrder?: number;
@@ -84,15 +114,16 @@ export interface Product {
 
 /**
  * Query params accepted by GET /api/products (matches backend listProductSchema).
- * NOTE: categoryId / minPrice / maxPrice are NOT supported by the current
- * product-service — those fields are stripped by Joi on the server side.
- * Keep them here as UI-only state; do NOT pass them to this type for API calls.
+ * NOTE: backend currently supports keyword + categoryId + paging + sorting.
+ * Price range filters are still UI-only until product-service exposes them.
  */
 export interface ProductListParams {
   page?: number;
   limit?: number;
   /** Maps to backend query param: ?keyword=  */
   keyword?: string;
+  /** Maps to backend query param: ?categoryId= */
+  categoryId?: string;
   sortBy?: "createdAt" | "updatedAt" | "name" | "price";
   sortOrder?: "asc" | "desc";
 }
@@ -188,6 +219,7 @@ export interface Order {
   shippingAddress: ShippingAddress;
   totalAmount: number;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
+  paymentStatus?: "pending" | "paid" | "failed" | "refunded";
   paymentMethod: "cod" | "bank_transfer" | "momo";
   createdAt: string;
 }

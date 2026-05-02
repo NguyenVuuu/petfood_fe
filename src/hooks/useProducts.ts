@@ -5,11 +5,19 @@ import { ProductListParams } from "@/types";
 
 export const PRODUCTS_KEY = "products";
 
-export function useProducts(params: ProductListParams = {}) {
+interface UseProductsOptions {
+  enabled?: boolean;
+}
+
+export function useProducts(
+  params: ProductListParams = {},
+  options: UseProductsOptions = {},
+) {
   return useQuery({
     queryKey: [PRODUCTS_KEY, params],
     queryFn: () => productService.listProducts(params),
     placeholderData: (prev) => prev,
+    enabled: options.enabled ?? true,
   });
 }
 

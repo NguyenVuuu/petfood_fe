@@ -1,20 +1,25 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useState } from "react";
 import { authService } from "@/services/auth.service";
 import { setCredentials, logout as logoutAction } from "@/store/authSlice";
 import { useAppDispatch, useAppSelector } from "./useAppDispatch";
-import { LoginPayload, RegisterPayload } from "@/types";
-import { cartService, getGuestToken, clearGuestToken } from "@/services/cart.service";
+import { InactiveLoginResponse, LoginPayload, RegisterPayload } from "@/types";
+import {
+  cartService,
+  getGuestToken,
+  clearGuestToken,
+} from "@/services/cart.service";
 import { CART_KEY } from "./useCartApi";
 
 export function useAuth() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user, isAuthenticated, accessToken } = useAppSelector(
-    (s) => s.auth
-  );
+  const [inactiveAccount, setInactiveAccount] =
+    useState<InactiveLoginResponse | null>(null);
+  const { user, isAuthenticated, accessToken } = useAppSelector((s) => s.auth);
 
   const mergeGuestCartAfterLogin = async () => {
     const guestToken = localStorage.getItem("cartGuestToken");
@@ -32,15 +37,38 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: (payload: LoginPayload) => authService.login(payload),
     onSuccess: async (data) => {
+      setInactiveAccount(null);
       dispatch(
-        setCredentials({ user: data.user, accessToken: data.accessToken })
+        setCredentials({ user: data.user, accessToken: data.accessToken }),
       );
       await mergeGuestCartAfterLogin();
       toast.success(`Welcome back, ${data.user.fullName}! 🐾`);
       navigate(data.user.role === "admin" ? "/admin" : "/");
     },
-    onError: (error: { response?: { data?: { message?: string } } }) => {
-      toast.error(error?.response?.data?.message ?? "Login failed");
+    onError: (error: {
+      response?: {
+        status?: number;
+        data?: Partial<InactiveLoginResponse> & { message?: string };
+      };
+    }) => {
+      const data = error?.response?.data;
+
+      if (
+        error?.response?.status === 403 &&
+        data?.canRequestReactivation &&
+        data?.userId
+      ) {
+        setInactiveAccount({
+          message: data.message ?? "Your account is inactive",
+          reason: data.reason ?? "Account is inactive",
+          canRequestReactivation: true,
+          userId: data.userId,
+        });
+        return;
+      }
+
+      setInactiveAccount(null);
+      toast.error(data?.message ?? "Login failed");
     },
   });
 
@@ -48,7 +76,7 @@ export function useAuth() {
     mutationFn: (payload: RegisterPayload) => authService.register(payload),
     onSuccess: async (data) => {
       dispatch(
-        setCredentials({ user: data.user, accessToken: data.accessToken })
+        setCredentials({ user: data.user, accessToken: data.accessToken }),
       );
       await mergeGuestCartAfterLogin();
       toast.success(`Welcome to PawMart, ${data.user.fullName}! 🐾`);
@@ -75,6 +103,8 @@ export function useAuth() {
     accessToken,
     isAdmin: user?.role === "admin",
     login: loginMutation.mutate,
+    inactiveAccount,
+    clearInactiveAccount: () => setInactiveAccount(null),
     register: registerMutation.mutate,
     logout: logoutMutation.mutate,
     isLoggingIn: loginMutation.isPending,

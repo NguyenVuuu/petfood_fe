@@ -1,5 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+  Link,
+  useSearchParams,
+} from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,7 +12,8 @@ import { ImagePlus, ArrowLeft, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useCreateProduct, useUpdateProduct } from "@/hooks/useProducts";
 import { productService } from "@/services/product.service";
-import { useCategoryList } from "@/hooks/useCategories";
+import { useCategoryTree } from "@/hooks/useCategories";
+import { flattenTree } from "@/services/category.service";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 
@@ -26,9 +32,16 @@ export default function AdminProductForm() {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
+  const preselectedCategoryId = searchParams.get("categoryId") ?? "";
+  const returnTo =
+    searchParams.get("returnTo") ??
+    (preselectedCategoryId
+      ? `/admin/categories?categoryId=${encodeURIComponent(preselectedCategoryId)}`
+      : "/admin/categories");
 
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
@@ -39,8 +52,8 @@ export default function AdminProductForm() {
     enabled: isEdit,
   });
 
-  const { data: catData } = useCategoryList({ limit: 100, isActive: true });
-  const categories = catData?.items ?? [];
+  const { data: categoryTree = [] } = useCategoryTree();
+  const categories = flattenTree(categoryTree);
 
   const {
     register,
@@ -49,6 +62,10 @@ export default function AdminProductForm() {
     formState: { errors, isSubmitting },
   } = useForm<ProductFormData>({
     resolver: zodResolver(productSchema),
+    defaultValues: {
+      categoryId: preselectedCategoryId,
+      isActive: true,
+    },
   });
 
   useEffect(() => {
@@ -58,12 +75,12 @@ export default function AdminProductForm() {
         description: product.description,
         price: product.price,
         stock: product.stock,
-        categoryId: product.categoryId ?? "",
+        categoryId: product.categoryId ?? preselectedCategoryId,
         isActive: product.isActive,
       });
       setImagePreview(product.imageUrl);
     }
-  }, [product, reset]);
+  }, [preselectedCategoryId, product, reset]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -93,7 +110,7 @@ export default function AdminProductForm() {
     } else {
       await createMutation.mutateAsync(formData);
     }
-    navigate("/admin/products");
+    navigate(returnTo);
   };
 
   if (isEdit && isLoadingProduct) {
@@ -107,7 +124,7 @@ export default function AdminProductForm() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/admin/products">
+        <Link to={returnTo}>
           <button className="rounded-xl p-2 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800">
             <ArrowLeft size={18} />
           </button>
@@ -120,7 +137,9 @@ export default function AdminProductForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Image upload */}
         <div className="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-          <p className="mb-4 font-semibold text-gray-900 dark:text-white">Product Image</p>
+          <p className="mb-4 font-semibold text-gray-900 dark:text-white">
+            Product Image
+          </p>
           <input
             ref={fileRef}
             type="file"
@@ -137,7 +156,10 @@ export default function AdminProductForm() {
               />
               <button
                 type="button"
-                onClick={() => { setImagePreview(null); setImageFile(null); }}
+                onClick={() => {
+                  setImagePreview(null);
+                  setImageFile(null);
+                }}
                 className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white shadow-md"
               >
                 <X size={12} />
@@ -166,9 +188,15 @@ export default function AdminProductForm() {
 
         {/* Product details */}
         <div className="space-y-4 rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-          <p className="font-semibold text-gray-900 dark:text-white">Product Details</p>
+          <p className="font-semibold text-gray-900 dark:text-white">
+            Product Details
+          </p>
 
-          <Input label="Product Name *" error={errors.name?.message} {...register("name")} />
+          <Input
+            label="Product Name *"
+            error={errors.name?.message}
+            {...register("name")}
+          />
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -181,7 +209,9 @@ export default function AdminProductForm() {
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
             {errors.description && (
-              <p className="mt-1 text-xs text-red-500">{errors.description.message}</p>
+              <p className="mt-1 text-xs text-red-500">
+                {errors.description.message}
+              </p>
             )}
           </div>
 
@@ -208,11 +238,13 @@ export default function AdminProductForm() {
             </label>
             <select
               {...register("categoryId")}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-amber-400 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             >
-              <option value="">-- No category --</option>
+              <option value="">— No category —</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
+                <option key={cat._id} value={cat._id}>
+                  {"  ".repeat(cat.depth)}
+                  {cat.depth > 0 ? "└ " : ""}
                   {cat.name}
                 </option>
               ))}
@@ -236,10 +268,15 @@ export default function AdminProductForm() {
         </div>
 
         <div className="flex gap-3">
-          <Button type="submit" size="lg" loading={isSubmitting} className="flex-1">
+          <Button
+            type="submit"
+            size="lg"
+            loading={isSubmitting}
+            className="flex-1"
+          >
             {isEdit ? "Update Product" : "Create Product"}
           </Button>
-          <Link to="/admin/products">
+          <Link to={returnTo}>
             <Button type="button" variant="outline" size="lg">
               Cancel
             </Button>

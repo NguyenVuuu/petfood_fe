@@ -10,7 +10,7 @@ export const authService = {
   async register(payload: RegisterPayload): Promise<AuthResponse> {
     const { data } = await apiClient.post<AuthResponse>(
       "/auth/register",
-      payload
+      payload,
     );
     return data;
   },
@@ -20,13 +20,22 @@ export const authService = {
   },
 
   async refresh(): Promise<{ accessToken: string }> {
-    const { data } =
-      await apiClient.post<{ accessToken: string }>("/auth/refresh");
+    const { data } = await apiClient.post<{ accessToken: string }>(
+      "/auth/refresh",
+    );
     return data;
   },
 
   async getMe(): Promise<User> {
     const { data } = await apiClient.get<{ user: User }>("/auth/me");
     return data.user;
+  },
+
+  async requestReactivation(userId: string): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(
+      "/auth/request-reactivation",
+      { userId },
+    );
+    return data;
   },
 };

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Pencil, Trash2, Search, Eye } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, Eye, FolderTree } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useProducts, useDeleteProduct } from "@/hooks/useProducts";
@@ -17,11 +17,15 @@ export default function AdminProductList() {
   const [search, setSearch] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
 
-  const { data, isLoading } = useProducts({ page, limit: 10, search: search || undefined });
+  const { data, isLoading } = useProducts({
+    page,
+    limit: 10,
+    keyword: search || undefined,
+  });
   const deleteMutation = useDeleteProduct();
 
-  const products = data?.products ?? [];
-  const totalPages = data?.totalPages ?? 1;
+  const products = data?.items ?? [];
+  const totalPages = data?.meta?.totalPages ?? 1;
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -34,23 +38,41 @@ export default function AdminProductList() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Products</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Products
+          </h1>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            {data?.total ?? 0} total products
+            Global catalog view across all categories.
           </p>
         </div>
-        <Link to="/admin/products/new">
-          <Button>
-            <Plus size={16} /> Add Product
-          </Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/admin/categories">
+            <Button variant="outline">
+              <FolderTree size={16} /> Manage by Category
+            </Button>
+          </Link>
+          <Link to="/admin/products/new?returnTo=%2Fadmin%2Fproducts">
+            <Button>
+              <Plus size={16} /> Add Product
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/10 dark:text-amber-300">
+        For large catalogs, use{" "}
+        <span className="font-semibold">Categories</span> as the primary
+        management workspace. This page remains a cross-category fallback view.
       </div>
 
       {/* Search */}
       <Input
         placeholder="Search products..."
         value={search}
-        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(1);
+        }}
         leftIcon={<Search size={14} />}
         className="max-w-sm"
       />
@@ -59,7 +81,9 @@ export default function AdminProductList() {
       <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
         {isLoading ? (
           <div className="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3">
-            {Array.from({ length: 6 }, (_, i) => <ProductCardSkeleton key={i} />)}
+            {Array.from({ length: 6 }, (_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
           </div>
         ) : products.length === 0 ? (
           <div className="p-12 text-center">
@@ -71,14 +95,16 @@ export default function AdminProductList() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-800/50">
-                  {["Product", "Price", "Stock", "Status", "Actions"].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-                    >
-                      {h}
-                    </th>
-                  ))}
+                  {["Product", "Price", "Stock", "Status", "Actions"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -117,7 +143,9 @@ export default function AdminProductList() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`text-sm font-medium ${product.stock === 0 ? "text-red-500" : product.stock <= 5 ? "text-amber-500" : "text-gray-700 dark:text-gray-300"}`}>
+                      <span
+                        className={`text-sm font-medium ${product.stock === 0 ? "text-red-500" : product.stock <= 5 ? "text-amber-500" : "text-gray-700 dark:text-gray-300"}`}
+                      >
                         {product.stock}
                       </span>
                     </td>
@@ -155,7 +183,11 @@ export default function AdminProductList() {
       </div>
 
       {!isLoading && totalPages > 1 && (
-        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       )}
 
       {/* Delete confirmation modal */}
