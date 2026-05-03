@@ -1,13 +1,13 @@
 import { Link } from "react-router-dom";
-import { ShoppingCart, Heart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 import { Product } from "@/types";
 import { formatPrice, getImageUrl, truncate } from "@/lib/utils";
 import { useCart } from "@/hooks/useCart";
-import { useWishlist } from "@/hooks/useWishlist";
 import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/ui/Rating";
 import { Button } from "@/components/ui/Button";
+import { WishlistButton } from "./WishlistButton";
 
 interface ProductCardProps {
   product: Product;
@@ -16,9 +16,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const { addItem, isInCart } = useCart();
-  const { toggle, isWishlisted } = useWishlist();
   const inCart = isInCart(product._id);
-  const wishlisted = isWishlisted(product._id);
 
   return (
     <motion.div
@@ -28,17 +26,12 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
       className="group relative flex flex-col rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-gray-800 dark:bg-gray-900"
     >
       {/* Wishlist button */}
-      <button
-        onClick={(e) => { e.preventDefault(); toggle(product); }}
-        className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 shadow-sm backdrop-blur-sm transition-all hover:scale-110 dark:bg-gray-800/90"
-        aria-label="Toggle wishlist"
-      >
-        <Heart
-          size={15}
-          className={wishlisted ? "text-red-500" : "text-gray-400"}
-          fill={wishlisted ? "currentColor" : "none"}
-        />
-      </button>
+      <WishlistButton
+        productId={product._id}
+        productName={product.name}
+        size={15}
+        className="absolute right-3 top-3 z-10 h-8 w-8"
+      />
 
       {/* Stock badge */}
       {product.stock === 0 && (

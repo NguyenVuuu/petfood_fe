@@ -1,6 +1,14 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ShoppingCart, Heart, ArrowLeft, Minus, Plus, Share2, Tag } from "lucide-react";
+import {
+  ShoppingCart,
+  Heart,
+  ArrowLeft,
+  Minus,
+  Plus,
+  Share2,
+  Tag,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import { useProduct } from "@/hooks/useProducts";
 import { useCart } from "@/hooks/useCart";
@@ -10,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/ui/Rating";
 import { ProductDetailSkeleton } from "@/components/ui/Skeleton";
+import { ReviewSection } from "@/components/review/ReviewSection";
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,8 +39,13 @@ export default function ProductDetailPage() {
     return (
       <div className="mx-auto max-w-7xl px-4 py-16 text-center md:px-6">
         <p className="text-6xl">😿</p>
-        <h2 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">Product not found</h2>
-        <Link to="/products" className="mt-4 inline-block text-amber-500 hover:underline">
+        <h2 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">
+          Product not found
+        </h2>
+        <Link
+          to="/products"
+          className="mt-4 inline-block text-amber-500 hover:underline"
+        >
           ← Back to products
         </Link>
       </div>
@@ -41,6 +55,8 @@ export default function ProductDetailPage() {
   const inCart = isInCart(product._id);
   const wishlisted = isWishlisted(product._id);
   const cartQty = getItemQuantity(product._id);
+  const averageRating = product.averageRating ?? product.rating ?? 0;
+  const reviewCount = product.reviewCount ?? 0;
 
   const handleAddToCart = () => {
     addItem(product, qty);
@@ -114,13 +130,13 @@ export default function ProductDetailPage() {
             <h1 className="mt-3 text-3xl font-extrabold text-gray-900 dark:text-white">
               {product.name}
             </h1>
-            {(product.rating ?? 0) > 0 && (
+            {reviewCount > 0 && (
               <div className="mt-2">
                 <Rating
-                  value={product.rating ?? 0}
+                  value={averageRating}
                   size="md"
                   showValue
-                  reviewCount={product.reviewCount}
+                  reviewCount={reviewCount}
                 />
               </div>
             )}
@@ -193,7 +209,9 @@ export default function ProductDetailPage() {
           <div className="space-y-2 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
             <div className="flex items-center gap-2 text-sm">
               <Tag size={14} className="text-amber-500" />
-              <span className="text-gray-500 dark:text-gray-400">Product ID:</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                Product ID:
+              </span>
               <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
                 {product._id}
               </span>
@@ -207,6 +225,8 @@ export default function ProductDetailPage() {
           </div>
         </motion.div>
       </div>
+
+      <ReviewSection productId={product._id} canReview={product.isActive} />
     </div>
   );
 }

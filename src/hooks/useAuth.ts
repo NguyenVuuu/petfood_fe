@@ -12,6 +12,7 @@ import {
   clearGuestToken,
 } from "@/services/cart.service";
 import { CART_KEY } from "./useCartApi";
+import { WISHLIST_KEY } from "./useWishlistApi";
 
 export function useAuth() {
   const dispatch = useAppDispatch();
@@ -92,6 +93,7 @@ export function useAuth() {
     onSettled: () => {
       dispatch(logoutAction());
       queryClient.removeQueries({ queryKey: [CART_KEY] });
+      queryClient.removeQueries({ queryKey: WISHLIST_KEY });
       toast.success("Logged out. See you soon! 🐾");
       navigate("/login");
     },

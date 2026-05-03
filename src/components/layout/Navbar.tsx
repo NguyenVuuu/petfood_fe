@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useCart } from "@/hooks/useCart";
-import { useWishlist } from "@/hooks/useWishlist";
+import { useWishlistQuery } from "@/hooks/useWishlistApi";
 import { useDebounce } from "@/hooks/useDebounce";
 import { cn } from "@/lib/utils";
 import { LanguageSwitcher } from "@/components/ui/LanguageSwitcher";
@@ -29,7 +29,8 @@ import {
 export function Navbar() {
   const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const { totalItems } = useCart();
-  const { items: wishlistItems } = useWishlist();
+  const { data: wishlistData } = useWishlistQuery();
+  const wishlistCount = wishlistData?.total ?? 0;
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -119,9 +120,9 @@ export function Navbar() {
             className="relative rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             <Heart size={18} />
-            {wishlistItems.length > 0 && (
+            {wishlistCount > 0 && (
               <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                {wishlistItems.length}
+                {wishlistCount > 9 ? "9+" : wishlistCount}
               </span>
             )}
           </Link>

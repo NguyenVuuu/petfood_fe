@@ -106,10 +106,41 @@ export interface Product {
   imageUrl: string;
   imageKey: string;
   isActive: boolean;
+  averageRating?: number;
   rating?: number;
   reviewCount?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface Review {
+  _id: string;
+  productId: string;
+  userId: string;
+  fullName: string;
+  avatarUrl?: string;
+  rating: number;
+  comment: string;
+  status: "visible" | "hidden";
+  verifiedPurchase: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewSummary {
+  averageRating: number;
+  totalReviews: number;
+}
+
+export interface ReviewPayload {
+  rating: number;
+  comment: string;
+}
+
+export interface ReviewListResponse {
+  reviews: Review[];
+  summary: ReviewSummary;
+  myReview: Review | null;
 }
 
 /**
