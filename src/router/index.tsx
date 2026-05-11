@@ -26,6 +26,9 @@ const AdminProductForm = lazy(() => import("@/pages/admin/AdminProductForm"));
 const AdminCategoryPage = lazy(() => import("@/pages/admin/AdminCategoryPage"));
 const AdminOrdersPage = lazy(() => import("@/pages/admin/AdminOrdersPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
+const VnpayPage = lazy(() => import("@/pages/payment/VnpayPage"));
+const PaymentResultPage = lazy(() => import("@/pages/payment/PaymentResultPage"));
+const VnpayReturnPage = lazy(() => import("@/pages/payment/VnpayReturnPage"));
 
 // ─── Page loader ─────────────────────────────────────────────────────────────
 function PageLoader() {
@@ -251,4 +254,36 @@ export const router = createBrowserRouter([
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },
+  {
+    path: "/payment",
+    element: <Layout />,
+    children: [
+      {
+        path: "vnpay",
+        element: (
+          <RequireAuth>
+            <S>
+              <VnpayPage />
+            </S>
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "result",
+        element: (
+          <S>
+            <PaymentResultPage />
+          </S>
+        ),
+      },
+      {
+        path: "vnpay-return",
+        element: (
+          <S>
+            <VnpayReturnPage />
+          </S>
+        ),
+      },
+    ],
+  },
 ]);

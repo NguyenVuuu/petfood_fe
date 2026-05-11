@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { CheckCircle, ArrowLeft, CreditCard, Truck, Banknote } from "lucide-react";
+import { CheckCircle, ArrowLeft, CreditCard, Truck, Banknote, QrCode } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
 import { orderService } from "@/services/order.service";
+import { paymentService } from "@/services/payment.service";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -26,7 +27,7 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 const PAYMENT_METHODS = [
   { id: "cod" as const, label: "Cash on Delivery", icon: <Truck size={16} />, desc: "Pay when you receive" },
-  { id: "bank_transfer" as const, label: "Bank Transfer", icon: <Banknote size={16} />, desc: "Transfer to our account" },
+  { id: "bank_transfer" as const, label: "VNPay QR", icon: <QrCode size={16} />, desc: "Scan QR to pay via VNPay" },
   { id: "momo" as const, label: "MoMo Wallet", icon: <CreditCard size={16} />, desc: "Pay via MoMo app" },
 ];
 
@@ -65,9 +66,25 @@ export default function CheckoutPage() {
         paymentMethod: data.paymentMethod,
       });
 
+      // VNPay QR — redirect to payment page, do NOT clear cart yet
+      if (data.paymentMethod === "bank_transfer") {
+        try {
+          const payment = await paymentService.createVnpayPayment(
+            order._id,
+            totalAmount + shipping,
+          );
+          navigate(`/payment/vnpay?paymentUrl=${encodeURIComponent(payment.paymentUrl)}&txnRef=${payment.txnRef}&orderId=${order._id}`);
+        } catch {
+          toast.error("Could not create payment. Please try again.");
+        }
+        return;
+      }
+
+      // COD / other — clear cart immediately
+      clear();
+
       setOrderId(order._id);
       setIsSuccess(true);
-      clear();
       toast.success("Order placed successfully.");
     } catch (error: unknown) {
       const message =

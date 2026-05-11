@@ -50,7 +50,7 @@ export function useCartApi() {
     onSuccess: (updatedCart) => {
       queryClient.setQueryData([CART_KEY], updatedCart);
     },
-    onError: () => toast.error("Failed to clear cart"),
+    // Silent — callers handle errors themselves
   });
 
   const mergeMutation = useMutation({
