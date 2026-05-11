@@ -1,10 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, MapPin, CreditCard, Package } from "lucide-react";
+import { ArrowLeft, MapPin, CreditCard, Package, CalendarClock, CheckCircle2 } from "lucide-react";
+import { toast } from "sonner";
 import { orderService } from "@/services/order.service";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/account/StatusBadge";
+import { Button } from "@/components/ui/Button";
 import { formatPrice, getImageUrl } from "@/lib/utils";
 
 const fmt = (v: string) =>
@@ -18,10 +20,23 @@ const PAYMENT_LABELS: Record<string, string> = {
 
 export default function AccountOrderDetailPage() {
   const { id = "" } = useParams();
+  const queryClient = useQueryClient();
   const { data: order, isLoading, isError } = useQuery({
     queryKey: ["account-order", id],
     queryFn: () => orderService.getOrder(id),
     enabled: !!id,
+  });
+
+  const popupSeenMutation = useMutation({
+    mutationFn: () => orderService.markDeliveryPopupSeen(id),
+    onSuccess: () => {
+      toast.success("Thanks for confirming delivery.");
+      queryClient.invalidateQueries({ queryKey: ["account-order", id] });
+      queryClient.invalidateQueries({ queryKey: ["account-orders"] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? "Failed to update delivery popup");
+    },
   });
 
   if (isLoading) {
@@ -39,7 +54,23 @@ export default function AccountOrderDetailPage() {
   }
 
   const toOrderLabel = (s: string) =>
-    ({ pending: "Pending", processing: "Processing", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" }[s] ?? s);
+    ({
+      pending: "Pending",
+      processing: "Processing",
+      shipped: "Shipped",
+      delivered: "Delivered",
+      cancelled: "Cancelled",
+      pending_payment: "Pending Payment",
+      paid: "Paid",
+      waiting_for_processing: "Waiting Processing",
+      waiting_for_delivery: "Waiting Delivery",
+      delivering: "Delivering",
+      failed: "Failed",
+      refunded: "Refunded",
+    }[s.toLowerCase()] ?? s);
+
+  const shouldShowDeliveredPopup =
+    order.orderStatus === "DELIVERED" && order.deliveryPopupSeen === false;
 
   return (
     <div className="space-y-4">
@@ -59,8 +90,35 @@ export default function AccountOrderDetailPage() {
           </h2>
           <p className="mt-0.5 text-sm text-gray-500">{fmt(order.createdAt)}</p>
         </div>
-        <StatusBadge type="order" value={toOrderLabel(order.status)} />
+        <StatusBadge type="order" value={toOrderLabel(order.orderStatus ?? order.status)} />
       </div>
+
+      {shouldShowDeliveredPopup && (
+        <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex gap-3">
+              <CheckCircle2 className="mt-0.5 text-emerald-500" size={22} />
+              <div>
+                <h3 className="font-bold text-emerald-800 dark:text-emerald-300">
+                  Your order has been delivered successfully.
+                </h3>
+                <p className="mt-1 text-sm text-emerald-700/80 dark:text-emerald-300/80">
+                  Please confirm that you have seen this delivery update.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              loading={popupSeenMutation.isPending}
+              onClick={() => popupSeenMutation.mutate()}
+            >
+              Got it
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Items */}
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -134,6 +192,33 @@ export default function AccountOrderDetailPage() {
                 <StatusBadge type="payment" value={order.paymentStatus} />
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 sm:col-span-2">
+          <div className="mb-3 flex items-center gap-2">
+            <CalendarClock size={16} className="text-amber-500" />
+            <h3 className="font-semibold text-gray-900 dark:text-white">Delivery Tracking</h3>
+          </div>
+          <div className="grid gap-3 text-sm sm:grid-cols-3">
+            <div>
+              <p className="text-gray-500">Current status</p>
+              <div className="mt-1">
+                <StatusBadge type="order" value={toOrderLabel(order.orderStatus ?? order.status)} />
+              </div>
+            </div>
+            <div>
+              <p className="text-gray-500">Estimated delivery</p>
+              <p className="mt-1 font-medium text-gray-900 dark:text-white">
+                {order.deliveryEstimatedTime ? fmt(order.deliveryEstimatedTime) : "Not set yet"}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Delivered at</p>
+              <p className="mt-1 font-medium text-gray-900 dark:text-white">
+                {order.deliveredAt ? fmt(order.deliveredAt) : "Not delivered yet"}
+              </p>
+            </div>
           </div>
         </div>
       </div>

@@ -250,8 +250,23 @@ export interface Order {
   shippingAddress: ShippingAddress;
   totalAmount: number;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
-  paymentStatus?: "pending" | "paid" | "failed" | "refunded";
+  orderStatus?:
+    | "PENDING_PAYMENT"
+    | "PAID"
+    | "WAITING_FOR_PROCESSING"
+    | "PROCESSING"
+    | "WAITING_FOR_DELIVERY"
+    | "DELIVERING"
+    | "DELIVERED"
+    | "CANCELLED"
+    | "FAILED"
+    | "REFUNDED";
+  paymentStatus?: "PENDING" | "PAID" | "FAILED" | "REFUNDED" | "pending" | "paid" | "failed" | "refunded";
   paymentMethod: "cod" | "bank_transfer" | "momo";
+  paymentId?: string | null;
+  deliveryEstimatedTime?: string | null;
+  deliveredAt?: string | null;
+  deliveryPopupSeen?: boolean;
   createdAt: string;
 }
 

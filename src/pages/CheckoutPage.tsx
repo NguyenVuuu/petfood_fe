@@ -5,11 +5,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { CheckCircle, ArrowLeft, CreditCard, Truck, Banknote } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
 import { formatPrice, getImageUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/lib/utils";
+import { orderService } from "@/services/order.service";
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -44,12 +46,46 @@ export default function CheckoutPage() {
   const shipping = totalAmount >= 500_000 ? 0 : 30_000;
 
   const onSubmit = async (data: CheckoutFormData) => {
-    await new Promise((r) => setTimeout(r, 1500)); // simulate API
-    const fakeOrderId = `PM${Date.now().toString().slice(-8)}`;
-    setOrderId(fakeOrderId);
-    setIsSuccess(true);
-    clear();
-    console.log("Order placed:", data);
+    try {
+      const order = await orderService.createOrder({
+        items: items.map((item) => ({
+          productId: item.productId.toString(),
+          name: item.productName,
+          price: item.priceAtAdd,
+          quantity: item.quantity,
+          imageUrl: item.imageUrl || "",
+        })),
+        shippingAddress: {
+          fullName: data.fullName,
+          phone: data.phone,
+          address: data.address,
+          city: data.city,
+          note: data.note || "",
+        },
+        paymentMethod: data.paymentMethod,
+      });
+
+      setOrderId(order._id);
+      setIsSuccess(true);
+      clear();
+      toast.success("Order placed successfully.");
+    } catch (error: unknown) {
+      const message =
+        error &&
+        typeof error === "object" &&
+        "response" in error &&
+        typeof error.response === "object" &&
+        error.response &&
+        "data" in error.response &&
+        typeof error.response.data === "object" &&
+        error.response.data &&
+        "message" in error.response.data &&
+        typeof error.response.data.message === "string"
+          ? error.response.data.message
+          : "Failed to place order";
+
+      toast.error(message);
+    }
   };
 
   if (items.length === 0 && !isSuccess) {

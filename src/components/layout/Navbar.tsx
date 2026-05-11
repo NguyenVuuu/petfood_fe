@@ -142,6 +142,7 @@ export function Navbar() {
           {isAuthenticated ? (
             <div className="relative hidden md:block">
               <button
+                type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               >
@@ -167,7 +168,7 @@ export function Navbar() {
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-gray-100 bg-white py-2 shadow-xl dark:border-gray-800 dark:bg-gray-900"
+                    className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-gray-100 bg-white py-2 shadow-xl dark:border-gray-800 dark:bg-gray-900"
                   >
                     {isAdmin && (
                       <Link
@@ -232,7 +233,7 @@ export function Navbar() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-950 md:hidden"
+            className="relative z-50 overflow-hidden border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-950 md:hidden"
           >
             <div className="space-y-1 p-4">
               {/* Mobile search */}

@@ -53,6 +53,19 @@ export function getImageUrl(url: string | undefined): string {
   return url;
 }
 
+/** Parse JSON from localStorage without crashing the app on stale values */
+export function parseJsonSafe<T>(value: string | null, fallback: T): T {
+  if (!value || value === "undefined" || value === "null") {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
 /** Debounce utility */
 export function debounce<T extends (...args: unknown[]) => unknown>(
   fn: T,

@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
+import { parseJsonSafe } from "@/lib/utils";
 
 // ─── Lazy page imports ────────────────────────────────────────────────────────
 const HomePage = lazy(() => import("@/pages/HomePage"));
@@ -52,7 +53,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 // ─── Protected route (admin) ─────────────────────────────────────────────────
 function RequireAdmin({ children }: { children: React.ReactNode }) {
   const raw = localStorage.getItem("authUser");
-  const user = raw ? JSON.parse(raw) : null;
+  const user = parseJsonSafe<{ role?: string } | null>(raw, null);
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== "admin") return <Navigate to="/" replace />;
   return <>{children}</>;

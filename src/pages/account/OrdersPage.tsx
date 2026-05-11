@@ -12,10 +12,23 @@ const fmt = (v: string) =>
   new Intl.DateTimeFormat("vi-VN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(v));
 
 const toPaymentLabel = (s?: string) =>
-  ({ paid: "Paid", failed: "Failed", refunded: "Refunded" }[s ?? ""] ?? "Pending");
+  ({ paid: "Paid", failed: "Failed", refunded: "Refunded" }[(s ?? "").toLowerCase()] ?? "Pending");
 
 const toOrderLabel = (s: string) =>
-  ({ pending: "Pending", processing: "Processing", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled" }[s] ?? s);
+  ({
+    pending: "Pending",
+    processing: "Processing",
+    shipped: "Shipped",
+    delivered: "Delivered",
+    cancelled: "Cancelled",
+    pending_payment: "Pending Payment",
+    paid: "Paid",
+    waiting_for_processing: "Waiting Processing",
+    waiting_for_delivery: "Waiting Delivery",
+    delivering: "Delivering",
+    failed: "Failed",
+    refunded: "Refunded",
+  }[s.toLowerCase()] ?? s);
 
 export default function AccountOrdersPage() {
   const { data: orders, isLoading, isError } = useQuery({
@@ -86,7 +99,7 @@ export default function AccountOrdersPage() {
                   <StatusBadge type="payment" value={toPaymentLabel(order.paymentStatus)} />
                 </td>
                 <td className="px-5 py-4">
-                  <StatusBadge type="order" value={toOrderLabel(order.status)} />
+                  <StatusBadge type="order" value={toOrderLabel(order.orderStatus ?? order.status)} />
                 </td>
                 <td className="px-5 py-4">
                   <Link
@@ -113,7 +126,7 @@ export default function AccountOrdersPage() {
                 </p>
                 <p className="mt-0.5 text-xs text-gray-400">{fmt(order.createdAt)}</p>
               </div>
-              <StatusBadge type="order" value={toOrderLabel(order.status)} />
+              <StatusBadge type="order" value={toOrderLabel(order.orderStatus ?? order.status)} />
             </div>
             <div className="mt-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
