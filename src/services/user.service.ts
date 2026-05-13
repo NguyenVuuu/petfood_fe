@@ -1,5 +1,5 @@
 import apiClient from "@/lib/axios";
-import { User, UserListParams, UserListResponse } from "@/types";
+import { User, UserListParams, UserListResponse, UserSearchResult } from "@/types";
 
 export const userService = {
   async getMe(): Promise<User> {
@@ -53,5 +53,13 @@ export const userService = {
       `/users/${id}/activate`,
     );
     return data.user;
+  },
+
+  async searchUsers(q: string): Promise<UserSearchResult[]> {
+    const { data } = await apiClient.get<{ users: UserSearchResult[] }>(
+      "/users/search",
+      { params: { q } },
+    );
+    return data.users;
   },
 };

@@ -1,214 +1,235 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { CheckCircle, ArrowLeft, CreditCard, Truck, Banknote } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useCart } from "@/hooks/useCart";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { CreditCard, MapPin, QrCode, Ticket, Truck } from "lucide-react";
+import { useCartApi } from "@/hooks/useCartApi";
+import { useAddresses } from "@/hooks/useAddresses";
+import { orderService } from "@/services/order.service";
 import { formatPrice, getImageUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
+import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
-import { cn } from "@/lib/utils";
-
-const checkoutSchema = z.object({
-  fullName: z.string().min(2, "Name must be at least 2 characters"),
-  phone: z.string().regex(/^[0-9]{10,11}$/, "Invalid phone number"),
-  address: z.string().min(5, "Address is required"),
-  city: z.string().min(2, "City is required"),
-  note: z.string().optional(),
-  paymentMethod: z.enum(["cod", "bank_transfer", "momo"]),
-});
-
-type CheckoutFormData = z.infer<typeof checkoutSchema>;
-
-const PAYMENT_METHODS = [
-  { id: "cod" as const, label: "Cash on Delivery", icon: <Truck size={16} />, desc: "Pay when you receive" },
-  { id: "bank_transfer" as const, label: "Bank Transfer", icon: <Banknote size={16} />, desc: "Transfer to our account" },
-  { id: "momo" as const, label: "MoMo Wallet", icon: <CreditCard size={16} />, desc: "Pay via MoMo app" },
-];
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, totalAmount, clear } = useCart();
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [orderId, setOrderId] = useState("");
+  const { items, totals, clear, isLoading: cartLoading } = useCartApi();
+  const { data: addresses = [], isLoading: addressLoading } = useAddresses();
 
-  const { register, handleSubmit, watch, formState: { errors, isSubmitting } } =
-    useForm<CheckoutFormData>({
-      resolver: zodResolver(checkoutSchema),
-      defaultValues: { paymentMethod: "cod" },
-    });
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "banking">("cash");
+  const [note, setNote] = useState("");
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
 
-  const selectedPayment = watch("paymentMethod");
-  const shipping = totalAmount >= 500_000 ? 0 : 30_000;
+  const defaultAddress = useMemo(() => addresses.find((a) => a.isDefault) ?? addresses[0], [addresses]);
+  const selectedAddress = useMemo(
+    () => addresses.find((a) => a.id === (selectedAddressId || defaultAddress?.id)) ?? defaultAddress,
+    [addresses, selectedAddressId, defaultAddress],
+  );
 
-  const onSubmit = async (data: CheckoutFormData) => {
-    await new Promise((r) => setTimeout(r, 1500)); // simulate API
-    const fakeOrderId = `PM${Date.now().toString().slice(-8)}`;
-    setOrderId(fakeOrderId);
-    setIsSuccess(true);
-    clear();
-    console.log("Order placed:", data);
-  };
+  const shippingFee = totals.subtotal > 500_000 ? 0 : 30_000;
+  const finalTotal = totals.subtotal + shippingFee;
 
-  if (items.length === 0 && !isSuccess) {
+  const createOrderMutation = useMutation({
+    mutationFn: () => {
+      if (!selectedAddress?.id) {
+        throw new Error("Please select a shipping address");
+      }
+
+      return orderService.createOrder({
+        items: items.map((item) => ({
+          productId: item.productId,
+          name: item.productName,
+          imageUrl: item.imageUrl,
+          quantity: item.quantity,
+          price: item.priceAtAdd,
+        })),
+        addressId: selectedAddress.id,
+        paymentMethod,
+        notes: note,
+      });
+    },
+    onSuccess: (order) => {
+      clear();
+      toast.success("Order created successfully");
+      if (paymentMethod === "banking") {
+        navigate(`/payment/upload-proof/${order._id}`);
+      } else {
+        navigate(`/my-account/orders/${order._id}`);
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message ?? error?.message ?? "Failed to place order");
+    },
+  });
+
+  if (!cartLoading && items.length === 0) {
     navigate("/cart");
     return null;
   }
 
-  if (isSuccess) {
-    return (
-      <div className="mx-auto max-w-lg px-4 py-20 text-center md:px-6">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", duration: 0.5 }}
-        >
-          <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-            <CheckCircle size={48} className="text-emerald-500" />
-          </div>
-        </motion.div>
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">
-          Order Placed! 🎉
-        </h1>
-        <p className="mt-3 text-gray-500 dark:text-gray-400">
-          Your order <span className="font-bold text-amber-500">#{orderId}</span> has been placed successfully.
-          We'll deliver your pet food soon! 🐾
-        </p>
-        <div className="mt-8 flex flex-col gap-3">
-          <Link to="/products">
-            <Button size="lg" className="w-full">Continue Shopping</Button>
-          </Link>
-          <Link to="/" className="text-sm text-gray-500 hover:text-amber-500 dark:text-gray-400">
-            Back to Home
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 md:px-6">
-      <Link to="/cart" className="mb-6 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-amber-500 dark:text-gray-400">
-        <ArrowLeft size={14} /> Back to cart
-      </Link>
-      <h1 className="mb-8 text-2xl font-bold text-gray-900 dark:text-white md:text-3xl">Checkout</h1>
+    <div className="mx-auto max-w-7xl px-4 py-8 md:px-6">
+      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">Checkout</h1>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-2">
-            {/* Shipping info */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="mb-5 font-bold text-gray-900 dark:text-white">
-                📦 Shipping Information
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-4 lg:col-span-2">
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+                <MapPin size={16} className="text-amber-500" /> Shipping address
               </h2>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Input label="Full Name" error={errors.fullName?.message} {...register("fullName")} />
-                <Input label="Phone Number" error={errors.phone?.message} {...register("phone")} />
-                <div className="sm:col-span-2">
-                  <Input label="Address" error={errors.address?.message} {...register("address")} />
-                </div>
-                <Input label="City / Province" error={errors.city?.message} {...register("city")} />
-                <div className="sm:col-span-2">
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Order Note (optional)
-                  </label>
-                  <textarea
-                    {...register("note")}
-                    rows={3}
-                    placeholder="Any special instructions..."
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm focus:border-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Payment */}
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="mb-5 font-bold text-gray-900 dark:text-white">
-                💳 Payment Method
-              </h2>
-              <div className="space-y-3">
-                {PAYMENT_METHODS.map((method) => (
-                  <label
-                    key={method.id}
-                    className={cn(
-                      "flex cursor-pointer items-center gap-4 rounded-xl border-2 p-4 transition-all",
-                      selectedPayment === method.id
-                        ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
-                        : "border-gray-100 hover:border-gray-200 dark:border-gray-800 dark:hover:border-gray-700"
-                    )}
-                  >
-                    <input
-                      type="radio"
-                      value={method.id}
-                      {...register("paymentMethod")}
-                      className="sr-only"
-                    />
-                    <div className={cn(
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                      selectedPayment === method.id
-                        ? "bg-amber-500 text-white"
-                        : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                    )}>
-                      {method.icon}
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900 dark:text-white">{method.label}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{method.desc}</div>
-                    </div>
-                    {selectedPayment === method.id && (
-                      <CheckCircle size={18} className="ml-auto text-amber-500" />
-                    )}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Order summary */}
-          <div>
-            <div className="sticky top-24 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-              <h2 className="mb-4 font-bold text-gray-900 dark:text-white">Your Order</h2>
-              <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
-                {items.map((item) => (
-                  <div key={item.productId.toString()} className="flex items-center gap-3">
-                    <img
-                      src={getImageUrl(item.imageUrl)}
-                      alt={item.productName}
-                      className="h-12 w-12 rounded-xl object-cover"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-gray-900 dark:text-white">{item.productName}</p>
-                      <p className="text-xs text-gray-500">x{item.quantity}</p>
-                    </div>
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {formatPrice(item.priceAtAdd * item.quantity)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 dark:border-gray-800">
-                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                  <span>Subtotal</span><span>{formatPrice(totalAmount)}</span>
-                </div>
-                <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                  <span>Shipping</span>
-                  <span className={shipping === 0 ? "text-emerald-500" : ""}>{shipping === 0 ? "FREE" : formatPrice(shipping)}</span>
-                </div>
-                <div className="flex justify-between border-t border-gray-100 pt-2 font-bold dark:border-gray-800">
-                  <span className="text-gray-900 dark:text-white">Total</span>
-                  <span className="text-lg text-amber-500">{formatPrice(totalAmount + shipping)}</span>
-                </div>
-              </div>
-              <Button type="submit" size="lg" loading={isSubmitting} className="mt-6 w-full">
-                Place Order 🐾
+              <Button size="sm" variant="outline" onClick={() => setAddressDialogOpen(true)}>
+                Change Address
               </Button>
             </div>
-          </div>
+
+            {addressLoading && <p className="text-sm text-gray-500">Loading addresses...</p>}
+            {!addressLoading && !selectedAddress && (
+              <p className="text-sm text-red-500">No address found. Please add address in My Account.</p>
+            )}
+            {selectedAddress && (
+              <div className="rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-800/60">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {selectedAddress.fullName} - {selectedAddress.phone}
+                </p>
+                <p className="text-gray-600 dark:text-gray-300">
+                  {selectedAddress.detailAddress}, {selectedAddress.ward}, {selectedAddress.district}, {selectedAddress.province}
+                </p>
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="mb-3 font-semibold text-gray-900 dark:text-white">Cart items</h2>
+            <div className="space-y-3">
+              {items.map((item) => (
+                <div key={item.productId} className="flex items-center gap-3">
+                  <img src={getImageUrl(item.imageUrl)} alt={item.productName} className="h-14 w-14 rounded-xl object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-gray-900 dark:text-white">{item.productName}</p>
+                    <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                  </div>
+                  <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(item.priceAtAdd * item.quantity)}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="mb-3 flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+              <Ticket size={16} className="text-amber-500" /> Coupon
+            </h2>
+            <div className="flex gap-2">
+              <Input value={couponCode} onChange={(e) => setCouponCode(e.target.value)} placeholder="Enter coupon code" />
+              <Button variant="outline" disabled>
+                Apply
+              </Button>
+            </div>
+            <p className="mt-2 text-xs text-gray-400">Coupon integration can be wired to cart summary validation later.</p>
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+            <h2 className="mb-3 flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
+              <CreditCard size={16} className="text-amber-500" /> Payment method
+            </h2>
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <Truck size={16} /> Cash on Delivery
+                </div>
+                <input
+                  type="radio"
+                  checked={paymentMethod === "cash"}
+                  onChange={() => setPaymentMethod("cash")}
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <CreditCard size={16} /> Banking Transfer
+                </div>
+                <input
+                  type="radio"
+                  checked={paymentMethod === "banking"}
+                  onChange={() => setPaymentMethod("banking")}
+                />
+              </label>
+              <div className="rounded-xl border border-dashed border-gray-300 p-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                VNPay <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">Coming soon</span>
+              </div>
+            </div>
+
+            {paymentMethod === "banking" && (
+              <div className="mt-4 space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900/40 dark:bg-blue-900/20">
+                <p className="font-semibold text-blue-700 dark:text-blue-300">Bank transfer instructions</p>
+                <p className="text-blue-700/90 dark:text-blue-300/90">Bank: Vietcombank - 0123456789 - PETFOOD COMPANY</p>
+                <div className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-blue-700 dark:bg-gray-900 dark:text-blue-300">
+                  <QrCode size={16} /> QR placeholder - scan to transfer
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Order note</label>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none ring-0 focus:border-amber-400 dark:border-gray-700 dark:bg-gray-900"
+                placeholder="Optional note for delivery"
+              />
+            </div>
+          </section>
         </div>
-      </form>
+
+        <aside className="h-fit rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+          <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Order summary</h3>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Subtotal</span>
+              <span>{formatPrice(totals.subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Shipping</span>
+              <span>{shippingFee === 0 ? "Free" : formatPrice(shippingFee)}</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold dark:border-gray-800">
+              <span>Total</span>
+              <span className="text-amber-600">{formatPrice(finalTotal)}</span>
+            </div>
+          </div>
+          <Button className="mt-4 w-full" loading={createOrderMutation.isPending} onClick={() => createOrderMutation.mutate()}>
+            Place order
+          </Button>
+        </aside>
+      </div>
+
+      <Modal isOpen={addressDialogOpen} onClose={() => setAddressDialogOpen(false)} title="Select shipping address" size="lg">
+        <div className="space-y-2">
+          {addresses.map((address) => (
+            <button
+              key={address.id}
+              onClick={() => {
+                setSelectedAddressId(address.id);
+                setAddressDialogOpen(false);
+              }}
+              className={`w-full rounded-xl border p-3 text-left transition ${
+                (selectedAddressId || defaultAddress?.id) === address.id
+                  ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20"
+                  : "border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+              }`}
+            >
+              <p className="font-medium text-gray-900 dark:text-white">
+                {address.fullName} - {address.phone} {address.isDefault && "(Default)"}
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-300">
+                {address.detailAddress}, {address.ward}, {address.district}, {address.province}
+              </p>
+            </button>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -1,22 +1,41 @@
 import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
-  Home, ChevronRight, UserCircle2, Heart, Package,
-  ShieldCheck, LogOut, Menu, X, ChevronLeft,
+  Home,
+  ChevronRight,
+  UserCircle2,
+  Heart,
+  Package,
+  ShieldCheck,
+  Ticket,
+  LogOut,
+  Menu,
+  X,
+  ChevronLeft,
+  MapPin,
+  Truck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
-  { to: "/account/profile", label: "My Profile", icon: UserCircle2, end: true },
-  { to: "/account/wishlist", label: "Wishlist", icon: Heart, end: false },
-  { to: "/account/orders", label: "Orders", icon: Package, end: false },
-  { to: "/account/security", label: "Security", icon: ShieldCheck, end: false },
+  { to: "/my-account/profile", label: "Profile", icon: UserCircle2, end: true },
+  { to: "/my-account/addresses", label: "Addresses", icon: MapPin, end: false },
+  { to: "/my-account/wishlist", label: "Wishlist", icon: Heart, end: false },
+  { to: "/my-account/orders", label: "Orders", icon: Package, end: false },
+  { to: "/my-account/orders/shipping", label: "Shipping Orders", icon: Truck, end: false },
+  { to: "/my-account/coupons", label: "Coupons", icon: Ticket, end: false },
+  { to: "/my-account/security", label: "Security", icon: ShieldCheck, end: false },
 ];
 
 function getInitials(name: string) {
-  return name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("");
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase())
+    .join("");
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
@@ -26,11 +45,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col">
-      {/* Profile summary */}
       <div className="border-b border-gray-100 p-5 dark:border-gray-800">
         <Link to="/" onClick={onNavigate} className="mb-4 flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 text-sm font-bold text-white">🐾</div>
-          <span className="font-bold text-gray-900 dark:text-white">Paw<span className="text-amber-500">Mart</span></span>
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500 text-sm font-bold text-white">
+            P
+          </div>
+          <span className="font-bold text-gray-900 dark:text-white">
+            Paw<span className="text-amber-500">Mart</span>
+          </span>
         </Link>
         <div className="flex items-center gap-3">
           <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-amber-100 ring-2 ring-amber-200 dark:ring-amber-800">
@@ -41,27 +63,20 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
                 {getInitials(user?.fullName ?? "U")}
               </div>
             )}
-            <span className={cn(
-              "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900",
-              isActive ? "bg-emerald-400" : "bg-gray-400"
-            )} />
+            <span
+              className={cn(
+                "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white dark:border-gray-900",
+                isActive ? "bg-emerald-400" : "bg-gray-400",
+              )}
+            />
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">{user?.fullName}</p>
             <p className="truncate text-xs text-gray-500 dark:text-gray-400">{user?.email}</p>
-            <span className={cn(
-              "mt-0.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold",
-              isActive
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                : "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
-            )}>
-              {isActive ? "Active" : "Inactive"}
-            </span>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 space-y-1 p-3">
         {NAV_ITEMS.map((item) => (
           <NavLink
@@ -69,12 +84,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             to={item.to}
             end={item.end}
             onClick={onNavigate}
-            className={({ isActive }) => cn(
-              "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
-              isActive
-                ? "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
-                : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-            )}
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all",
+                isActive
+                  ? "bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400"
+                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white",
+              )
+            }
           >
             <item.icon size={17} />
             <span className="flex-1">{item.label}</span>
@@ -83,14 +100,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         ))}
       </nav>
 
-      {/* Logout */}
       <div className="border-t border-gray-100 p-3 dark:border-gray-800">
         <button
-          onClick={() => { logout(); onNavigate?.(); }}
+          onClick={() => {
+            logout();
+            onNavigate?.();
+          }}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-900/20"
         >
-          <LogOut size={17} />
-          Sign Out
+          <LogOut size={17} /> Sign Out
         </button>
       </div>
     </div>
@@ -104,10 +122,8 @@ export default function AccountLayout() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      {/* ── Breadcrumb header ── */}
       <div className="border-b border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 md:px-6">
-          {/* Breadcrumb */}
           <nav className="flex items-center gap-1.5 text-sm">
             <Link to="/" className="flex items-center gap-1 text-gray-500 transition-colors hover:text-amber-500 dark:text-gray-400">
               <Home size={14} />
@@ -118,7 +134,6 @@ export default function AccountLayout() {
           </nav>
 
           <div className="flex items-center gap-2">
-            {/* Back button */}
             <button
               onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
@@ -127,49 +142,38 @@ export default function AccountLayout() {
               <span className="hidden sm:inline">Back</span>
             </button>
 
-            {/* Mobile drawer toggle */}
             <button
               onClick={() => setDrawerOpen(true)}
               className="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 lg:hidden"
             >
-              <Menu size={16} />
-              Menu
+              <Menu size={16} /> Menu
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Page body ── */}
       <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
-        {/* Welcome strip */}
         <div className="mb-6 flex items-center gap-3">
           <div className="h-8 w-1 rounded-full bg-amber-500" />
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-              Hello, {user?.fullName?.split(" ")[0] ?? "there"} 👋
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Manage your profile, orders and favorites
-            </p>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Hello, {user?.fullName?.split(" ")[0] ?? "there"}</h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Manage your profile, orders and addresses</p>
           </div>
         </div>
 
         <div className="flex gap-6">
-          {/* ── Desktop sidebar ── */}
           <aside className="hidden w-64 shrink-0 lg:block">
             <div className="sticky top-20 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
               <SidebarContent />
             </div>
           </aside>
 
-          {/* ── Main content ── */}
           <main className="min-w-0 flex-1">
             <Outlet />
           </main>
         </div>
       </div>
 
-      {/* ── Mobile drawer ── */}
       <AnimatePresence>
         {drawerOpen && (
           <>

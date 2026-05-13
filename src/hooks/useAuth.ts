@@ -91,11 +91,12 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: () => authService.logout(),
     onSettled: () => {
+      const isAdmin = user?.role === "admin";
       dispatch(logoutAction());
       queryClient.removeQueries({ queryKey: [CART_KEY] });
       queryClient.removeQueries({ queryKey: WISHLIST_KEY });
       toast.success("Logged out. See you soon! 🐾");
-      navigate("/login");
+      navigate(isAdmin ? "/login" : "/");
     },
   });
 

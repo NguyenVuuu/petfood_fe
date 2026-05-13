@@ -1,25 +1,75 @@
 import apiClient from "@/lib/axios";
-import { Order, OrderItem, ShippingAddress } from "@/types";
+import { Order, OrderItem, PaymentStatus } from "@/types";
 
 export interface CreateOrderPayload {
   items: OrderItem[];
-  shippingAddress: ShippingAddress;
-  paymentMethod: "cod" | "bank_transfer" | "momo";
+  paymentMethod: "cash" | "banking";
+  addressId: string;
+  notes?: string;
 }
 
 export const orderService = {
   async createOrder(payload: CreateOrderPayload): Promise<Order> {
-    const { data } = await apiClient.post<{ order: Order }>("/orders", payload);
+    const { data } = await apiClient.post<{ success: boolean; order: Order }>("/orders", payload);
     return data.order;
   },
 
   async getMyOrders(): Promise<Order[]> {
-    const { data } = await apiClient.get<{ orders: Order[] }>("/orders/me");
+    const { data } = await apiClient.get<{ success: boolean; orders: Order[] }>("/orders/my");
+    return data.orders;
+  },
+
+  async getMyShippingOrders(): Promise<Order[]> {
+    const { data } = await apiClient.get<{ success: boolean; orders: Order[] }>("/orders/my/shipping");
     return data.orders;
   },
 
   async getOrder(id: string): Promise<Order> {
-    const { data } = await apiClient.get<{ order: Order }>(`/orders/${id}`);
+    const { data } = await apiClient.get<{ success: boolean; order: Order }>(`/orders/${id}`);
+    return data.order;
+  },
+
+  async listAdminOrders(params?: { page?: number; limit?: number }): Promise<{ orders: Order[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
+    const { data } = await apiClient.get("/admin/orders", { params });
+    return data;
+  },
+
+  async listAdminPendingOrders(params?: { page?: number; limit?: number }): Promise<{ orders: Order[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
+    const { data } = await apiClient.get("/admin/orders/pending", { params });
+    return data;
+  },
+
+  async confirmOrder(id: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/confirm`);
+    return data.order;
+  },
+
+  async markShipping(id: string, estimatedDeliveryAt: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/shipping`, {
+      estimatedDeliveryAt,
+    });
+    return data.order;
+  },
+
+  async markDelivered(id: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/delivered`);
+    return data.order;
+  },
+
+  async markCompleted(id: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/completed`);
+    return data.order;
+  },
+
+  async cancelOrder(id: string, reason = ""): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/cancel`, { reason });
+    return data.order;
+  },
+
+  async updateCodPaymentStatus(id: string, paymentStatus: Extract<PaymentStatus, "paid">): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/payment-status`, {
+      paymentStatus,
+    });
     return data.order;
   },
 };
