@@ -1,23 +1,15 @@
-import { Heart, Package, UserCircle2 } from "lucide-react";
+import { Heart, MapPin, Package, ShieldCheck, Ticket, Truck, UserCircle2 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 const menuItems = [
-  {
-    to: "/account/profile",
-    label: "Account Management",
-    icon: UserCircle2,
-  },
-  {
-    to: "/account/wishlist",
-    label: "Wishlist",
-    icon: Heart,
-  },
-  {
-    to: "/account/orders",
-    label: "Orders",
-    icon: Package,
-  },
+  { to: "/my-account/profile", label: "Profile", icon: UserCircle2 },
+  { to: "/my-account/addresses", label: "Addresses", icon: MapPin },
+  { to: "/my-account/wishlist", label: "Wishlist", icon: Heart },
+  { to: "/my-account/orders", label: "Orders", icon: Package },
+  { to: "/my-account/orders/shipping", label: "Shipping", icon: Truck },
+  { to: "/my-account/coupons", label: "Coupons", icon: Ticket },
+  { to: "/my-account/security", label: "Security", icon: ShieldCheck },
 ];
 
 export function AccountSidebar() {
@@ -29,7 +21,7 @@ export function AccountSidebar() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === "/account/profile"}
+              end={item.to === "/my-account/profile"}
               className={({ isActive }) =>
                 cn(
                   "mb-2 flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition",
@@ -46,12 +38,12 @@ export function AccountSidebar() {
         </div>
       </aside>
 
-      <nav className="mb-4 grid grid-cols-3 gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:hidden">
+      <nav className="mb-4 grid grid-cols-4 gap-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:hidden">
         {menuItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
-            end={item.to === "/account/profile"}
+            end={item.to === "/my-account/profile"}
             className={({ isActive }) =>
               cn(
                 "flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-[11px] font-semibold transition",

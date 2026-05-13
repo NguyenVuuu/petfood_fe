@@ -181,7 +181,7 @@ export function Navbar() {
                       </Link>
                     )}
                     <Link
-                      to="/account/profile"
+                      to="/my-account/profile"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
@@ -277,7 +277,7 @@ export function Navbar() {
                       </Link>
                     )}
                     <Link
-                      to="/account/profile"
+                      to="/my-account/profile"
                       onClick={() => setMenuOpen(false)}
                       className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                     >

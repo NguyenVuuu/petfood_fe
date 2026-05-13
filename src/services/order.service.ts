@@ -1,100 +1,75 @@
 import apiClient from "@/lib/axios";
-import { Order, OrderItem, ShippingAddress } from "@/types";
+import { Order, OrderItem, PaymentStatus } from "@/types";
 
 export interface CreateOrderPayload {
   items: OrderItem[];
-  shippingAddress: ShippingAddress;
-  paymentMethod: "cod" | "bank_transfer" | "momo";
+  paymentMethod: "cash" | "banking";
+  addressId: string;
+  notes?: string;
 }
-
-export interface OrderListResponse {
-  orders: Order[];
-  meta?: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
-export type AdminOrderStatus =
-  | "WAITING_FOR_PROCESSING"
-  | "PROCESSING"
-  | "WAITING_FOR_DELIVERY"
-  | "DELIVERING"
-  | "DELIVERED"
-  | "CANCELLED"
-  | "REFUNDED";
 
 export const orderService = {
   async createOrder(payload: CreateOrderPayload): Promise<Order> {
-    const { data } = await apiClient.post<{ order: Order }>("/orders", payload);
+    const { data } = await apiClient.post<{ success: boolean; order: Order }>("/orders", payload);
     return data.order;
   },
 
   async getMyOrders(): Promise<Order[]> {
-    const { data } = await apiClient.get<{ orders: Order[] }>("/orders/my-orders");
+    const { data } = await apiClient.get<{ success: boolean; orders: Order[] }>("/orders/my");
+    return data.orders;
+  },
+
+  async getMyShippingOrders(): Promise<Order[]> {
+    const { data } = await apiClient.get<{ success: boolean; orders: Order[] }>("/orders/my/shipping");
     return data.orders;
   },
 
   async getOrder(id: string): Promise<Order> {
-    const { data } = await apiClient.get<{ order: Order }>(`/orders/${id}`);
+    const { data } = await apiClient.get<{ success: boolean; order: Order }>(`/orders/${id}`);
     return data.order;
   },
 
-  async markDeliveryPopupSeen(id: string): Promise<Order> {
-    const { data } = await apiClient.patch<{ order: Order }>(
-      `/orders/${id}/delivery-popup-seen`,
-    );
-    return data.order;
-  },
-
-  async getAdminOrders(params?: {
-    orderStatus?: string;
-    paymentStatus?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<OrderListResponse> {
-    const { data } = await apiClient.get<OrderListResponse>("/admin/orders", { params });
+  async listAdminOrders(params?: { page?: number; limit?: number }): Promise<{ orders: Order[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
+    const { data } = await apiClient.get("/admin/orders", { params });
     return data;
   },
 
-  async getWaitingForProcessing(): Promise<OrderListResponse> {
-    const { data } = await apiClient.get<OrderListResponse>(
-      "/admin/orders/waiting-processing",
-    );
+  async listAdminPendingOrders(params?: { page?: number; limit?: number }): Promise<{ orders: Order[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
+    const { data } = await apiClient.get("/admin/orders/pending", { params });
     return data;
   },
 
-  async updateDeliveryTime(id: string, deliveryEstimatedTime: string): Promise<Order> {
-    const { data } = await apiClient.patch<{ order: Order }>(
-      `/admin/orders/${id}/delivery-time`,
-      { deliveryEstimatedTime },
-    );
+  async confirmOrder(id: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/confirm`);
     return data.order;
   },
 
-  async updateAdminStatus(
-    id: string,
-    orderStatus: AdminOrderStatus,
-    reason = "",
-  ): Promise<Order> {
-    const { data } = await apiClient.patch<{ order: Order }>(
-      `/admin/orders/${id}/status`,
-      { orderStatus, reason },
-    );
+  async markShipping(id: string, estimatedDeliveryAt: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/shipping`, {
+      estimatedDeliveryAt,
+    });
     return data.order;
   },
 
-  async simulatePaymentSucceeded(id: string): Promise<Order> {
-    const { data } = await apiClient.post<{ order: Order }>(
-      "/orders/events/payment-succeeded",
-      {
-        eventId: `manual-${id}-${Date.now()}`,
-        orderId: id,
-        paymentId: "507f1f77bcf86cd799439011",
-      },
-    );
+  async markDelivered(id: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/delivered`);
+    return data.order;
+  },
+
+  async markCompleted(id: string): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/completed`);
+    return data.order;
+  },
+
+  async cancelOrder(id: string, reason = ""): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/cancel`, { reason });
+    return data.order;
+  },
+
+  async updateCodPaymentStatus(id: string, paymentStatus: Extract<PaymentStatus, "paid">): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/payment-status`, {
+      paymentStatus,
+    });
     return data.order;
   },
 };
