@@ -1,16 +1,24 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { CheckCircle2, ImagePlus, UploadCloud, X } from "lucide-react";
+import { CheckCircle2, CreditCard, ImagePlus, UploadCloud, X } from "lucide-react";
 import { toast } from "sonner";
 import { paymentService } from "@/services/payment.service";
+import { orderService } from "@/services/order.service";
 import { Button } from "@/components/ui/Button";
+import { formatPrice } from "@/lib/utils";
 
 export default function PaymentUploadProofPage() {
   const { orderId = "" } = useParams();
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string>("");
+
+  const { data: order, isLoading } = useQuery({
+    queryKey: ["payment-upload-order", orderId],
+    queryFn: () => orderService.getOrder(orderId),
+    enabled: !!orderId,
+  });
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -19,7 +27,7 @@ export default function PaymentUploadProofPage() {
     },
     onSuccess: () => {
       toast.success("Proof uploaded. Waiting for admin verification");
-      navigate("/my-account/orders");
+      navigate(`/my-account/orders/${orderId}`);
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message ?? error?.message ?? "Upload failed");
@@ -36,6 +44,21 @@ export default function PaymentUploadProofPage() {
       <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Upload Banking Transfer Proof</h1>
         <p className="mt-1 text-sm text-gray-500">Order #{orderId.slice(-8).toUpperCase()}</p>
+
+        <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 dark:border-blue-900/40 dark:bg-blue-900/20 dark:text-blue-200">
+          <div className="mb-2 flex items-center gap-2 font-semibold">
+            <CreditCard size={16} /> Banking transfer
+          </div>
+          <p>Bank: Vietcombank</p>
+          <p>Account: 0123456789</p>
+          <p>Receiver: PETFOOD COMPANY</p>
+          <p>
+            Amount:{" "}
+            <span className="font-bold">
+              {isLoading ? "Loading..." : formatPrice(order?.totalAmount ?? 0)}
+            </span>
+          </p>
+        </div>
 
         <div className="mt-6 rounded-2xl border border-dashed border-gray-300 p-6 text-center dark:border-gray-700">
           {!preview ? (

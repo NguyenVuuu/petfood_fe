@@ -168,7 +168,8 @@ function OrderAdminPanel({ pendingOnly = false }: { pendingOnly?: boolean }) {
                 </Button>
               )}
 
-              {!(["completed", "cancelled"] as string[]).includes(order.orderStatus) && (
+              {!(["completed", "cancelled"] as string[]).includes(order.orderStatus) &&
+                !order.estimatedDeliveryAt && (
                 <Button
                   size="sm"
                   variant="danger"

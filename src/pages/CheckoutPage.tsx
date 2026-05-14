@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CreditCard, MapPin, QrCode, Ticket, Truck } from "lucide-react";
 import { useCartApi } from "@/hooks/useCartApi";
@@ -10,10 +10,13 @@ import { formatPrice, getImageUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
+import { CART_KEY } from "@/hooks/useCartApi";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { items, totals, clear, isLoading: cartLoading } = useCartApi();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const { items, isLoading: cartLoading } = useCartApi();
   const { data: addresses = [], isLoading: addressLoading } = useAddresses();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
@@ -23,40 +26,50 @@ export default function CheckoutPage() {
   const [couponCode, setCouponCode] = useState("");
 
   const defaultAddress = useMemo(() => addresses.find((a) => a.isDefault) ?? addresses[0], [addresses]);
+  const selectedCartItemIds = useMemo(() => {
+    const ids = (location.state as { selectedCartItemIds?: string[] } | null)?.selectedCartItemIds;
+    return ids?.length ? ids : items.map((item) => item.productId.toString());
+  }, [items, location.state]);
+  const selectedItems = useMemo(
+    () => items.filter((item) => selectedCartItemIds.includes(item.productId.toString())),
+    [items, selectedCartItemIds],
+  );
   const selectedAddress = useMemo(
     () => addresses.find((a) => a.id === (selectedAddressId || defaultAddress?.id)) ?? defaultAddress,
     [addresses, selectedAddressId, defaultAddress],
   );
 
-  const shippingFee = totals.subtotal > 500_000 ? 0 : 30_000;
-  const finalTotal = totals.subtotal + shippingFee;
+  const selectedSubtotal = selectedItems.reduce(
+    (sum, item) => sum + item.priceAtAdd * item.quantity,
+    0,
+  );
+  const shippingFee = selectedSubtotal > 500_000 ? 0 : 30_000;
+  const finalTotal = selectedSubtotal + shippingFee;
 
   const createOrderMutation = useMutation({
     mutationFn: () => {
       if (!selectedAddress?.id) {
         throw new Error("Please select a shipping address");
       }
+      if (selectedItems.length === 0) {
+        throw new Error("Please select at least one cart item");
+      }
 
       return orderService.createOrder({
-        items: items.map((item) => ({
-          productId: item.productId,
-          name: item.productName,
-          imageUrl: item.imageUrl,
-          quantity: item.quantity,
-          price: item.priceAtAdd,
-        })),
+        selectedCartItemIds: selectedItems.map((item) => item.productId.toString()),
         addressId: selectedAddress.id,
         paymentMethod,
         notes: note,
       });
     },
-    onSuccess: (order) => {
-      clear();
-      toast.success("Order created successfully");
-      if (paymentMethod === "banking") {
-        navigate(`/payment/upload-proof/${order._id}`);
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: [CART_KEY] });
+      if (result.nextAction === "UPLOAD_BANKING_PROOF") {
+        toast.info("Please upload your bank transfer proof to complete payment confirmation.");
+        navigate(`/payment/upload-proof/${result.order._id}`);
       } else {
-        navigate(`/my-account/orders/${order._id}`);
+        toast.success("Order created successfully");
+        navigate(`/my-account/orders/${result.order._id}`);
       }
     },
     onError: (error: any) => {
@@ -64,7 +77,7 @@ export default function CheckoutPage() {
     },
   });
 
-  if (!cartLoading && items.length === 0) {
+  if (!cartLoading && (items.length === 0 || selectedItems.length === 0)) {
     navigate("/cart");
     return null;
   }
@@ -104,7 +117,7 @@ export default function CheckoutPage() {
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <h2 className="mb-3 font-semibold text-gray-900 dark:text-white">Cart items</h2>
             <div className="space-y-3">
-              {items.map((item) => (
+              {selectedItems.map((item) => (
                 <div key={item.productId} className="flex items-center gap-3">
                   <img src={getImageUrl(item.imageUrl)} alt={item.productName} className="h-14 w-14 rounded-xl object-cover" />
                   <div className="min-w-0 flex-1">
@@ -188,7 +201,7 @@ export default function CheckoutPage() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">Subtotal</span>
-              <span>{formatPrice(totals.subtotal)}</span>
+              <span>{formatPrice(selectedSubtotal)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Shipping</span>
