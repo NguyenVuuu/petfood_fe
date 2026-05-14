@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Minus, Plus, Trash2, ShoppingBag, ArrowRight,
@@ -43,20 +43,73 @@ export default function CartPage() {
   const navigate = useNavigate();
   const { items, totals, totalItems, remove, updateQty, clear, isLoading } = useCartApi();
   const [isValidating, setIsValidating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    setSelectedIds((current) => {
+      const availableIds = new Set(items.map((item) => item.productId.toString()));
+      const next = new Set([...current].filter((id) => availableIds.has(id)));
+
+      if (current.size === 0) {
+        items.forEach((item) => next.add(item.productId.toString()));
+      }
+
+      return next;
+    });
+  }, [items]);
+
+  const selectedItems = useMemo(
+    () => items.filter((item) => selectedIds.has(item.productId.toString())),
+    [items, selectedIds],
+  );
+
+  const selectedSubtotal = selectedItems.reduce(
+    (sum, item) => sum + item.priceAtAdd * item.quantity,
+    0,
+  );
+  const selectedTotalItems = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const toggleItem = (productId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelectedIds((current) => {
+      if (current.size === items.length) return new Set();
+      return new Set(items.map((item) => item.productId.toString()));
+    });
+  };
 
   const handleCheckout = async () => {
     setIsValidating(true);
     try {
       const result = await cartService.validateCart();
-      if (result.canCheckout) {
-        navigate("/checkout");
+      const selectedIssueCount = result.issues.filter((issue) =>
+        selectedIds.has(issue.productId.toString()),
+      ).length;
+
+      if (selectedItems.length === 0) {
+        import("sonner").then(({ toast }) => {
+          toast.warning("Please select at least one item to checkout.");
+        });
+      } else if (selectedIssueCount === 0) {
+        navigate("/checkout", {
+          state: { selectedCartItemIds: selectedItems.map((item) => item.productId.toString()) },
+        });
       } else {
         // Issues are now reflected in cart items via flags after validate
         // Just show a toast and let the UI update
-        const issueCount = result.issues.length;
         import("sonner").then(({ toast }) => {
           toast.warning(
-            `${issueCount} item${issueCount > 1 ? "s" : ""} need attention before checkout.`,
+            `${selectedIssueCount} selected item${selectedIssueCount > 1 ? "s" : ""} need attention before checkout.`,
             { description: "Please review the flagged items below." }
           );
         });
@@ -99,9 +152,12 @@ export default function CartPage() {
     );
   }
 
-  const shipping = totals.subtotal >= 500_000 ? 0 : 30_000;
-  const orderTotal = totals.subtotal + shipping;
+  const shipping = selectedSubtotal >= 500_000 || selectedSubtotal === 0 ? 0 : 30_000;
+  const orderTotal = selectedSubtotal + shipping;
   const hasIssues = items.some(
+    (i) => i.flags.priceChanged || i.flags.outOfStock || i.flags.inactiveProduct
+  );
+  const selectedHasIssues = selectedItems.some(
     (i) => i.flags.priceChanged || i.flags.outOfStock || i.flags.inactiveProduct
   );
 
@@ -120,6 +176,20 @@ export default function CartPage() {
         >
           {t("cart.clearAll", "Clear all")}
         </button>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50/70 px-4 py-3 text-sm dark:border-amber-900/40 dark:bg-amber-900/20">
+        <label className="inline-flex cursor-pointer items-center gap-2 font-medium text-gray-800 dark:text-gray-100">
+          <input
+            type="checkbox"
+            checked={items.length > 0 && selectedIds.size === items.length}
+            onChange={toggleAll}
+            className="h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+          />
+          Select all items
+        </label>
+        <span className="text-gray-600 dark:text-gray-300">
+          {selectedItems.length} selected for checkout, unselected items stay in your cart.
+        </span>
       </div>
 
       {/* Issues banner */}
@@ -152,6 +222,15 @@ export default function CartPage() {
                       : "border-gray-100 dark:border-gray-800"
                   }`}
                 >
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(item.productId.toString())}
+                      onChange={() => toggleItem(item.productId.toString())}
+                      className="h-4 w-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400"
+                      aria-label={`Select ${item.productName} for checkout`}
+                    />
+                  </div>
                   <Link to={`/products/${item.productId}`} className="shrink-0">
                     <img
                       src={getImageUrl(item.imageUrl)}
@@ -233,6 +312,10 @@ export default function CartPage() {
                 <span>{t("cart.subtotal", "Subtotal")} ({totalItems} items)</span>
                 <span>{formatPrice(totals.subtotal)}</span>
               </div>
+              <div className="flex justify-between text-sm font-medium text-gray-800 dark:text-gray-200">
+                <span>Selected subtotal ({selectedTotalItems} items)</span>
+                <span>{formatPrice(selectedSubtotal)}</span>
+              </div>
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
                 <span>{t("cart.shipping", "Shipping")}</span>
                 <span className={shipping === 0 ? "font-medium text-emerald-500" : ""}>
@@ -241,7 +324,7 @@ export default function CartPage() {
               </div>
               {shipping > 0 && (
                 <p className="text-xs text-amber-600 dark:text-amber-400">
-                  Add {formatPrice(500_000 - totals.subtotal)} more for free shipping!
+                  Add {formatPrice(500_000 - selectedSubtotal)} more for free shipping!
                 </p>
               )}
               <div className="border-t border-gray-100 pt-3 dark:border-gray-800">
@@ -257,7 +340,7 @@ export default function CartPage() {
               className="mt-6 w-full"
               onClick={handleCheckout}
               loading={isValidating}
-              disabled={hasIssues && !isValidating}
+              disabled={(selectedItems.length === 0 || (selectedHasIssues && !isValidating)) && !isValidating}
             >
               {isValidating ? (
                 <>
@@ -270,9 +353,9 @@ export default function CartPage() {
               )}
             </Button>
 
-            {hasIssues && (
+            {selectedHasIssues && (
               <p className="mt-2 text-center text-xs text-amber-600 dark:text-amber-400">
-                Please resolve flagged items to checkout
+                Please resolve selected flagged items to checkout
               </p>
             )}
 
