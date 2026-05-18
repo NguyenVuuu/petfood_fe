@@ -264,6 +264,11 @@ export interface Order {
   userId: string;
   items: OrderItem[];
   shippingAddress: ShippingAddress;
+  subtotal?: number;
+  shippingFee?: number;
+  shippingDiscount?: number;
+  couponCode?: string;
+  couponDiscount?: number;
   totalAmount: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;

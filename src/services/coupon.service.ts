@@ -4,6 +4,8 @@ import {
   UserCoupon,
   CreateCouponPayload,
   AssignCouponPayload,
+  CouponValidation,
+  AvailableCoupon,
 } from "@/types/coupon";
 
 export const couponService = {
@@ -36,5 +38,24 @@ export const couponService = {
   async getMyCoupons(): Promise<UserCoupon[]> {
     const { data } = await apiClient.get<{ coupons: UserCoupon[] }>("/coupons/my");
     return data.coupons;
+  },
+
+  async getAvailableCoupons(params: { subtotal: number; shippingFee: number }): Promise<AvailableCoupon[]> {
+    const { data } = await apiClient.get<{ coupons: AvailableCoupon[] }>("/coupons/available", {
+      params: {
+        ...params,
+        _t: Date.now(),
+      },
+    });
+    return data.coupons;
+  },
+
+  async validateCoupon(payload: {
+    code: string;
+    subtotal: number;
+    shippingFee: number;
+  }): Promise<CouponValidation> {
+    const { data } = await apiClient.post<CouponValidation>("/coupons/validate", payload);
+    return data;
   },
 };

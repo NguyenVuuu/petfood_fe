@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CreditCard, MapPin, QrCode, Ticket, Truck } from "lucide-react";
 import { useCartApi } from "@/hooks/useCartApi";
 import { useAddresses } from "@/hooks/useAddresses";
 import { orderService } from "@/services/order.service";
+import { couponService } from "@/services/coupon.service";
 import { formatPrice, getImageUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -23,7 +24,11 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "banking">("cash");
   const [note, setNote] = useState("");
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [couponDialogOpen, setCouponDialogOpen] = useState(false);
   const [couponCode, setCouponCode] = useState("");
+  const [appliedCouponCode, setAppliedCouponCode] = useState("");
+  const [couponDiscount, setCouponDiscount] = useState(0);
+  const [couponShippingDiscount, setCouponShippingDiscount] = useState(0);
 
   const defaultAddress = useMemo(() => addresses.find((a) => a.isDefault) ?? addresses[0], [addresses]);
   const selectedCartItemIds = useMemo(() => {
@@ -43,8 +48,50 @@ export default function CheckoutPage() {
     (sum, item) => sum + item.priceAtAdd * item.quantity,
     0,
   );
-  const shippingFee = selectedSubtotal > 500_000 ? 0 : 30_000;
-  const finalTotal = selectedSubtotal + shippingFee;
+  const baseShippingFee = 30_000;
+  const automaticShippingDiscount = selectedSubtotal >= 500_000 ? baseShippingFee : 0;
+  const payableShippingFee = Math.max(0, baseShippingFee - automaticShippingDiscount);
+  const shippingDiscount = Math.min(baseShippingFee, automaticShippingDiscount + couponShippingDiscount);
+  const finalTotal = Math.max(0, selectedSubtotal + baseShippingFee - shippingDiscount - couponDiscount);
+
+  const {
+    data: checkoutCoupons,
+    isLoading: couponLoading,
+    isError: couponError,
+    refetch: refetchCoupons,
+  } = useQuery({
+    queryKey: ["checkout-coupons", selectedSubtotal, payableShippingFee],
+    queryFn: () =>
+      couponService.getAvailableCoupons({
+        subtotal: selectedSubtotal,
+        shippingFee: payableShippingFee,
+      }),
+    enabled: selectedSubtotal > 0,
+  });
+
+  const applyCoupon = async (code: string) => {
+    try {
+      const result = await couponService.validateCoupon({
+        code,
+        subtotal: selectedSubtotal,
+        shippingFee: payableShippingFee,
+      });
+
+      if (!result.valid) {
+        toast.error(result.message);
+        return;
+      }
+
+      setAppliedCouponCode(result.coupon?.code || code.toUpperCase());
+      setCouponCode(result.coupon?.code || code.toUpperCase());
+      setCouponDiscount(result.discountAmount || 0);
+      setCouponShippingDiscount(result.shippingDiscount || 0);
+      setCouponDialogOpen(false);
+      toast.success(result.message);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message ?? "Unable to apply coupon");
+    }
+  };
 
   const createOrderMutation = useMutation({
     mutationFn: () => {
@@ -59,6 +106,7 @@ export default function CheckoutPage() {
         selectedCartItemIds: selectedItems.map((item) => item.productId.toString()),
         addressId: selectedAddress.id,
         paymentMethod,
+        couponCode: appliedCouponCode || undefined,
         notes: note,
       });
     },
@@ -134,13 +182,101 @@ export default function CheckoutPage() {
             <h2 className="mb-3 flex items-center gap-2 font-semibold text-gray-900 dark:text-white">
               <Ticket size={16} className="text-amber-500" /> Coupon
             </h2>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <Input value={couponCode} onChange={(e) => setCouponCode(e.target.value)} placeholder="Enter coupon code" />
-              <Button variant="outline" disabled>
+              <Button variant="outline" onClick={() => applyCoupon(couponCode)} disabled={!couponCode}>
                 Apply
               </Button>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setCouponDialogOpen(true);
+                  refetchCoupons();
+                }}
+              >
+                Choose Coupon
+              </Button>
             </div>
-            <p className="mt-2 text-xs text-gray-400">Coupon integration can be wired to cart summary validation later.</p>
+            {appliedCouponCode ? (
+              <div className="mt-3 flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300">
+                <span>Applied {appliedCouponCode}</span>
+                <button
+                  onClick={() => {
+                    setAppliedCouponCode("");
+                    setCouponCode("");
+                    setCouponDiscount(0);
+                    setCouponShippingDiscount(0);
+                  }}
+                  className="font-semibold hover:underline"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-gray-400">Available coupons are filtered for this order amount.</p>
+            )}
+
+            <div className="mt-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">Available coupons</p>
+                {couponLoading && <span className="text-xs text-gray-400">Loading...</span>}
+              </div>
+
+              {couponError && (
+                <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-300">
+                  Unable to load coupons. You can still enter a code manually.
+                </p>
+              )}
+
+              {!couponLoading && !couponError && (checkoutCoupons ?? []).length === 0 && (
+                <p className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-500 dark:bg-gray-800 dark:text-gray-300">
+                  No available coupons for this order.
+                </p>
+              )}
+
+              {(checkoutCoupons ?? []).slice(0, 3).map((coupon) => {
+                const selected = appliedCouponCode === coupon.code;
+                return (
+                  <div
+                    key={`inline-${coupon.code}-${coupon.userCouponId ?? coupon.couponId}`}
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition ${
+                      selected
+                        ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-900/20"
+                        : "border-amber-100 bg-amber-50/60 hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-900/10"
+                    }`}
+                  >
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-amber-700 dark:text-amber-300">{coupon.code}</p>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-gray-500 dark:bg-gray-900 dark:text-gray-300">
+                          {coupon.source === "assigned" ? "Assigned to you" : "Public"}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        Saves {formatPrice(coupon.discountPreview || 0)} · Min {formatPrice(coupon.minOrderAmount || 0)}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={selected ? "outline" : "primary"}
+                      onClick={() => applyCoupon(coupon.code)}
+                      disabled={selected}
+                    >
+                      {selected ? "Applied" : "Apply"}
+                    </Button>
+                  </div>
+                );
+              })}
+
+              {(checkoutCoupons ?? []).length > 3 && (
+                <button
+                  onClick={() => setCouponDialogOpen(true)}
+                  className="text-sm font-semibold text-amber-600 hover:underline"
+                >
+                  View all {(checkoutCoupons ?? []).length} coupons
+                </button>
+              )}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
@@ -205,7 +341,15 @@ export default function CheckoutPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Shipping</span>
-              <span>{shippingFee === 0 ? "Free" : formatPrice(shippingFee)}</span>
+              <span>{formatPrice(baseShippingFee)}</span>
+            </div>
+            <div className="flex justify-between text-emerald-600">
+              <span>Shipping Discount</span>
+              <span>-{formatPrice(shippingDiscount)}</span>
+            </div>
+            <div className="flex justify-between text-emerald-600">
+              <span>Coupon Discount</span>
+              <span>-{formatPrice(couponDiscount)}</span>
             </div>
             <div className="flex justify-between border-t border-gray-100 pt-2 text-base font-bold dark:border-gray-800">
               <span>Total</span>
@@ -241,6 +385,49 @@ export default function CheckoutPage() {
               </p>
             </button>
           ))}
+        </div>
+      </Modal>
+
+      <Modal isOpen={couponDialogOpen} onClose={() => setCouponDialogOpen(false)} title="Available Coupons" size="lg">
+        <div className="space-y-3">
+          {couponLoading && <p className="text-sm text-gray-500">Loading coupons...</p>}
+          {couponError && (
+            <p className="rounded-2xl bg-red-50 p-4 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-300">
+              Unable to load available coupons. Please try again or enter a coupon code manually.
+            </p>
+          )}
+          {!couponLoading &&
+            !couponError &&
+            (checkoutCoupons ?? []).length === 0 && (
+              <p className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-500 dark:bg-gray-800">
+                No usable coupons for this order.
+              </p>
+            )}
+          {(checkoutCoupons ?? []).map((coupon) => {
+            return (
+              <div key={`${coupon.code}-${coupon.userCouponId ?? coupon.couponId}`} className="rounded-2xl border border-gray-100 p-4 dark:border-gray-800">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-bold text-amber-600">{coupon.code}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">{coupon.description || "Petfood discount coupon"}</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {coupon.appliesTo === "shipping" ? "Shipping coupon" : "Order coupon"} · Min {formatPrice(coupon.minOrderAmount || 0)}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {coupon.source === "assigned" ? "Assigned to you" : "Public campaign"}
+                    </p>
+                    <p className="text-xs text-gray-400">Expires {new Date(coupon.expiresAt).toLocaleDateString("vi-VN")}</p>
+                  </div>
+                  <Button size="sm" onClick={() => applyCoupon(coupon.code)}>
+                    Apply
+                  </Button>
+                </div>
+                <p className="mt-2 text-sm text-emerald-600">
+                  Saves {formatPrice(coupon.discountPreview || 0)}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </Modal>
     </div>

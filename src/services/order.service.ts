@@ -5,6 +5,7 @@ export interface CreateOrderPayload {
   selectedCartItemIds: string[];
   paymentMethod: "cash" | "banking";
   addressId: string;
+  couponCode?: string;
   notes?: string;
 }
 
