@@ -10,6 +10,7 @@ import { formatPrice, getImageUrl } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
+import { apiClient } from "@/lib/axios";
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export default function CheckoutPage() {
   const { data: addresses = [], isLoading: addressLoading } = useAddresses();
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "banking">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "banking" | "vnpay">("cash");
   const [note, setNote] = useState("");
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [couponCode, setCouponCode] = useState("");
@@ -50,11 +51,32 @@ export default function CheckoutPage() {
         notes: note,
       });
     },
-    onSuccess: (order) => {
+    onSuccess: async (order) => {
       clear();
       toast.success("Order created successfully");
+      
       if (paymentMethod === "banking") {
         navigate(`/payment/upload-proof/${order._id}`);
+      } else if (paymentMethod === "vnpay") {
+        try {
+          // Gọi API để lấy VNPay payment URL
+          const { data } = await apiClient.post(`/payments/vnpay/create`, {
+            orderId: order._id,
+            amount: order.totalAmount,
+            orderInfo: `Thanh toan don hang ${order._id}`,
+          });
+          
+          if (data.paymentUrl) {
+            // Chuyển đến trang VNPay với payment URL
+            navigate(`/payment/vnpay?url=${encodeURIComponent(data.paymentUrl)}`);
+          } else {
+            toast.error("Failed to create VNPay payment");
+            navigate(`/my-account/orders/${order._id}`);
+          }
+        } catch (error: any) {
+          toast.error("Failed to create VNPay payment");
+          navigate(`/my-account/orders/${order._id}`);
+        }
       } else {
         navigate(`/my-account/orders/${order._id}`);
       }
@@ -155,9 +177,16 @@ export default function CheckoutPage() {
                   onChange={() => setPaymentMethod("banking")}
                 />
               </label>
-              <div className="rounded-xl border border-dashed border-gray-300 p-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                VNPay <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">Coming soon</span>
-              </div>
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <CreditCard size={16} /> VNPay
+                </div>
+                <input
+                  type="radio"
+                  checked={paymentMethod === "vnpay"}
+                  onChange={() => setPaymentMethod("vnpay")}
+                />
+              </label>
             </div>
 
             {paymentMethod === "banking" && (

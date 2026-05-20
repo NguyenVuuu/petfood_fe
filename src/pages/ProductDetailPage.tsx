@@ -226,7 +226,7 @@ export default function ProductDetailPage() {
         </motion.div>
       </div>
 
-      <ReviewSection productId={product._id} canReview={product.isActive} />
+      <ReviewSection productId={product._id} canReview={true} />
     </div>
   );
 }

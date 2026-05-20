@@ -9,6 +9,8 @@ const ProductDetailPage = lazy(() => import("@/pages/ProductDetailPage"));
 const CartPage = lazy(() => import("@/pages/CartPage"));
 const CheckoutPage = lazy(() => import("@/pages/CheckoutPage"));
 const PaymentUploadProofPage = lazy(() => import("@/pages/PaymentUploadProofPage"));
+const VnpayPage = lazy(() => import("@/pages/payment/VnpayPage"));
+const VnpayReturnPage = lazy(() => import("@/pages/payment/VnpayReturnPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
@@ -78,6 +80,14 @@ export const router = createBrowserRouter([
       {
         path: "payment/upload-proof/:orderId",
         element: <RequireAuth><S><PaymentUploadProofPage /></S></RequireAuth>,
+      },
+      {
+        path: "payment/vnpay",
+        element: <RequireAuth><S><VnpayPage /></S></RequireAuth>,
+      },
+      {
+        path: "payment/vnpay-return",
+        element: <RequireAuth><S><VnpayReturnPage /></S></RequireAuth>,
       },
     ],
   },
