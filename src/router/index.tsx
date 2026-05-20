@@ -31,6 +31,12 @@ const AdminPendingOrdersPage = lazy(() => import("@/pages/admin/AdminPendingOrde
 const AdminBankingPaymentsPage = lazy(() => import("@/pages/admin/AdminBankingPaymentsPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
 const AdminCouponsPage = lazy(() => import("@/pages/admin/AdminCouponsPage"));
+const RevenueStatisticsPage = lazy(() => import("@/pages/admin/statistics/RevenueStatisticsPage"));
+const OrderStatisticsPage = lazy(() => import("@/pages/admin/statistics/OrderStatisticsPage"));
+const ProductStatisticsPage = lazy(() => import("@/pages/admin/statistics/ProductStatisticsPage"));
+const CouponStatisticsPage = lazy(() => import("@/pages/admin/statistics/CouponStatisticsPage"));
+const UserStatisticsPage = lazy(() => import("@/pages/admin/statistics/UserStatisticsPage"));
+const PaymentStatisticsPage = lazy(() => import("@/pages/admin/statistics/PaymentStatisticsPage"));
 
 function PageLoader() {
   return (
@@ -104,6 +110,7 @@ export const router = createBrowserRouter([
     element: <RequireAdmin><AdminLayout /></RequireAdmin>,
     children: [
       { index: true, element: <S><AdminDashboard /></S> },
+      { path: "dashboard", element: <S><AdminDashboard /></S> },
       { path: "categories", element: <S><AdminCategoryPage /></S> },
       { path: "products", element: <Navigate to="/admin/categories" replace /> },
       { path: "products/new", element: <S><AdminProductForm /></S> },
@@ -113,6 +120,12 @@ export const router = createBrowserRouter([
       { path: "payments/banking", element: <S><AdminBankingPaymentsPage /></S> },
       { path: "users", element: <S><AdminUsersPage /></S> },
       { path: "coupons", element: <S><AdminCouponsPage /></S> },
+      { path: "statistics/revenue", element: <S><RevenueStatisticsPage /></S> },
+      { path: "statistics/orders", element: <S><OrderStatisticsPage /></S> },
+      { path: "statistics/products", element: <S><ProductStatisticsPage /></S> },
+      { path: "statistics/coupons", element: <S><CouponStatisticsPage /></S> },
+      { path: "statistics/users", element: <S><UserStatisticsPage /></S> },
+      { path: "statistics/payments", element: <S><PaymentStatisticsPage /></S> },
     ],
   },
   { path: "*", element: <Navigate to="/" replace /> },
