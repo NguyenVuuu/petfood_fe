@@ -8,6 +8,12 @@ import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { formatPrice } from "@/lib/utils";
 
+const paymentStateLabel = (status: string, hasProof: boolean) => {
+  if (status === "pending" && !hasProof) return "Waiting for user proof";
+  if (status === "waiting_verify" && hasProof) return "Waiting admin verification";
+  return status.replace(/_/g, " ");
+};
+
 export default function AdminBankingPaymentsPage() {
   const queryClient = useQueryClient();
   const [keyword, setKeyword] = useState("");
@@ -85,16 +91,30 @@ export default function AdminBankingPaymentsPage() {
                 <p className="font-mono font-semibold text-gray-900 dark:text-white">Payment #{payment._id.slice(-8).toUpperCase()}</p>
                 <p className="text-gray-500">Order: #{payment.orderId.slice(-8).toUpperCase()}</p>
                 <p className="text-gray-500">Amount: <span className="font-semibold text-amber-600">{formatPrice(payment.amount)}</span></p>
-                <p className="text-gray-500">Uploaded: {new Date(payment.updatedAt).toLocaleString("vi-VN")}</p>
+                <p className="text-gray-500">
+                  Status:{" "}
+                  <span className="font-semibold text-gray-800 dark:text-gray-200">
+                    {paymentStateLabel(payment.status, Boolean(payment.proofImageUrl))}
+                  </span>
+                </p>
+                <p className="text-gray-500">
+                  {payment.proofImageUrl ? "Uploaded" : "Created"}:{" "}
+                  {new Date(payment.updatedAt).toLocaleString("vi-VN")}
+                </p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Button size="sm" onClick={() => approveMutation.mutate(payment._id)}>
+                <Button
+                  size="sm"
+                  disabled={payment.status !== "waiting_verify" || !payment.proofImageUrl}
+                  onClick={() => approveMutation.mutate(payment._id)}
+                >
                   <CheckCircle2 size={14} /> Approve
                 </Button>
                 <Button
                   size="sm"
                   variant="danger"
+                  disabled={payment.status !== "waiting_verify" || !payment.proofImageUrl}
                   onClick={() => {
                     setSelectedId(payment._id);
                     setRejectDialogOpen(true);

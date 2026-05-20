@@ -19,19 +19,19 @@ export const paymentService = {
   },
 
   async getPendingBankingPayments(params?: { page?: number; limit?: number }): Promise<{ payments: Payment[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {
-    const { data } = await apiClient.get("/admin/payments/banking/pending", {
+    const { data } = await apiClient.get("/payments/admin/payments/banking/pending", {
       params,
     });
     return data;
   },
 
   async approvePayment(id: string): Promise<Payment> {
-    const { data } = await apiClient.patch<{ success: boolean; payment: Payment }>(`/admin/payments/${id}/approve`);
+    const { data } = await apiClient.patch<{ success: boolean; payment: Payment }>(`/payments/admin/payments/${id}/approve`);
     return data.payment;
   },
 
   async rejectPayment(id: string, rejectedReason: string): Promise<Payment> {
-    const { data } = await apiClient.patch<{ success: boolean; payment: Payment }>(`/admin/payments/${id}/reject`, {
+    const { data } = await apiClient.patch<{ success: boolean; payment: Payment }>(`/payments/admin/payments/${id}/reject`, {
       rejectedReason,
     });
     return data.payment;

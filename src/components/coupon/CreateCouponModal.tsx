@@ -20,6 +20,9 @@ const EMPTY: CreateCouponPayload = {
   scope: "global",
   expiresAt: "",
   usageLimit: null,
+  perUserLimit: 1,
+  appliesTo: "order",
+  maxDiscountAmount: null,
 };
 
 export function CreateCouponModal({
@@ -78,6 +81,41 @@ export function CreateCouponModal({
               <option value="user">User-specific</option>
               <option value="birthday">Birthday</option>
             </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className={labelClass}>Applies To</label>
+            <select
+              className={selectClass}
+              value={form.appliesTo}
+              onChange={(e) => set("appliesTo", e.target.value as "order" | "shipping")}
+            >
+              <option value="order">Order</option>
+              <option value="shipping">Shipping</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Per-user Limit</label>
+            <Input
+              type="number"
+              min={1}
+              value={form.perUserLimit || 1}
+              onChange={(e) => set("perUserLimit", Number(e.target.value))}
+            />
+          </div>
+          <div>
+            <label className={labelClass}>Max Discount</label>
+            <Input
+              type="number"
+              min={0}
+              placeholder="No cap"
+              value={form.maxDiscountAmount ?? ""}
+              onChange={(e) =>
+                set("maxDiscountAmount", e.target.value ? Number(e.target.value) : null)
+              }
+            />
           </div>
         </div>
 

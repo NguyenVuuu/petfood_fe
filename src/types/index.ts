@@ -257,13 +257,18 @@ export interface ShippingAddress {
 
 export type PaymentMethod = "cash" | "banking";
 export type OrderStatus = "pending" | "confirmed" | "shipping" | "delivered" | "completed" | "cancelled";
-export type PaymentStatus = "unpaid" | "pending" | "waiting_verify" | "paid" | "failed";
+export type PaymentStatus = "unpaid" | "pending" | "waiting_verify" | "paid" | "failed" | "expired";
 
 export interface Order {
   _id: string;
   userId: string;
   items: OrderItem[];
   shippingAddress: ShippingAddress;
+  subtotal?: number;
+  shippingFee?: number;
+  shippingDiscount?: number;
+  couponCode?: string;
+  couponDiscount?: number;
   totalAmount: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
@@ -274,6 +279,9 @@ export interface Order {
   deliveredAt?: string | null;
   completedAt?: string | null;
   cancelledAt?: string | null;
+  expiresAt?: string | null;
+  cancelledReason?: string;
+  cartRestoredAt?: string | null;
   notes?: string;
   createdAt: string;
   updatedAt: string;

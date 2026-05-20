@@ -1,17 +1,30 @@
 import apiClient from "@/lib/axios";
-import { Order, OrderItem, PaymentStatus } from "@/types";
+import { Order, Payment, PaymentStatus } from "@/types";
 
 export interface CreateOrderPayload {
-  items: OrderItem[];
+  selectedCartItemIds: string[];
   paymentMethod: "cash" | "banking";
   addressId: string;
+  couponCode?: string;
   notes?: string;
 }
 
+export interface CreateOrderResponse {
+  order: Order;
+  payment?: Payment;
+  nextAction: "UPLOAD_BANKING_PROOF" | "ORDER_CREATED";
+}
+
 export const orderService = {
-  async createOrder(payload: CreateOrderPayload): Promise<Order> {
-    const { data } = await apiClient.post<{ success: boolean; order: Order }>("/orders", payload);
-    return data.order;
+  async createOrder(payload: CreateOrderPayload): Promise<CreateOrderResponse> {
+    const { data } = await apiClient.post<
+      { success: boolean } & CreateOrderResponse
+    >("/orders", payload);
+    return {
+      order: data.order,
+      payment: data.payment,
+      nextAction: data.nextAction,
+    };
   },
 
   async getMyOrders(): Promise<Order[]> {
@@ -63,6 +76,11 @@ export const orderService = {
 
   async cancelOrder(id: string, reason = ""): Promise<Order> {
     const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/admin/orders/${id}/cancel`, { reason });
+    return data.order;
+  },
+
+  async cancelMyBankingOrder(id: string, reason = ""): Promise<Order> {
+    const { data } = await apiClient.patch<{ success: boolean; order: Order }>(`/orders/${id}/cancel-unpaid-banking`, { reason });
     return data.order;
   },
 

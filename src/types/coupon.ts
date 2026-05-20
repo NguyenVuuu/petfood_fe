@@ -10,11 +10,41 @@ export interface Coupon {
   discountValue: number;
   minOrderAmount: number;
   scope: CouponScope;
+  appliesTo: "order" | "shipping";
+  maxDiscountAmount: number | null;
   expiresAt: string;
   isActive: boolean;
   usageLimit: number | null;
   usedCount: number;
+  perUserLimit: number;
   createdAt: string;
+}
+
+export interface CouponValidation {
+  valid: boolean;
+  coupon?: Coupon;
+  discountAmount: number;
+  shippingDiscount: number;
+  finalAmount: number;
+  message: string;
+}
+
+export interface AvailableCoupon {
+  couponId: string;
+  userCouponId?: string | null;
+  code: string;
+  description: string;
+  scope: CouponScope;
+  type: CouponType;
+  discountValue: number;
+  minOrderAmount: number;
+  maxDiscountAmount: number | null;
+  appliesTo: "order" | "shipping";
+  expiresAt: string;
+  discountPreview: number;
+  discountAmount: number;
+  shippingDiscount: number;
+  source: "public" | "assigned";
 }
 
 export interface UserCoupon {
@@ -32,9 +62,12 @@ export interface UserCoupon {
     | "discountValue"
     | "minOrderAmount"
     | "scope"
+    | "appliesTo"
+    | "maxDiscountAmount"
     | "expiresAt"
     | "isActive"
   >;
+  validation?: CouponValidation;
 }
 
 export interface CreateCouponPayload {
@@ -46,6 +79,9 @@ export interface CreateCouponPayload {
   scope?: CouponScope;
   expiresAt: string; // ISO string
   usageLimit?: number | null;
+  perUserLimit?: number;
+  appliesTo?: "order" | "shipping";
+  maxDiscountAmount?: number | null;
 }
 
 export interface AssignCouponPayload {
