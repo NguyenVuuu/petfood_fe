@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquareText,
   ShoppingCart,
   Tag,
   Users,
@@ -33,20 +34,86 @@ type NavItem =
     };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/admin", end: true, icon: <LayoutDashboard size={18} />, label: "Dashboard" },
+  {
+    to: "/admin",
+    end: true,
+    icon: <LayoutDashboard size={18} />,
+    label: "Dashboard",
+  },
   { type: "group", label: "Management" },
-  { to: "/admin/users", end: false, icon: <Users size={18} />, label: "Quản lý User" },
-  { to: "/admin/coupons", end: false, icon: <Tag size={18} />, label: "Quản lý Coupon" },
-  { to: "/admin/orders", end: false, icon: <ShoppingCart size={18} />, label: "Quản lý Order" },
-  { to: "/admin/categories", end: false, icon: <FolderTree size={18} />, label: "Quản lý Product" },
-  { to: "/admin/orders/pending", end: false, icon: <Clock3 size={18} />, label: "Pending Orders" },
-  { to: "/admin/payments/banking", end: false, icon: <Banknote size={18} />, label: "Banking Payments" },
+  {
+    to: "/admin/users",
+    end: false,
+    icon: <Users size={18} />,
+    label: "Quản lý User",
+  },
+  {
+    to: "/admin/coupons",
+    end: false,
+    icon: <Tag size={18} />,
+    label: "Quản lý Coupon",
+  },
+  {
+    to: "/admin/orders",
+    end: false,
+    icon: <ShoppingCart size={18} />,
+    label: "Quản lý Order",
+  },
+  {
+    to: "/admin/categories",
+    end: false,
+    icon: <FolderTree size={18} />,
+    label: "Quản lý Product",
+  },
+  {
+    to: "/admin/orders/pending",
+    end: false,
+    icon: <Clock3 size={18} />,
+    label: "Pending Orders",
+  },
+  {
+    to: "/admin/payments/banking",
+    end: false,
+    icon: <Banknote size={18} />,
+    label: "Banking Payments",
+  },
+  {
+    to: "/admin/reviews",
+    end: false,
+    icon: <MessageSquareText size={18} />,
+    label: "Quản lý đánh giá",
+  },
   { type: "group", label: "Analytics" },
-  { to: "/admin/statistics/revenue", end: false, icon: <ChartNoAxesCombined size={18} />, label: "Thống kê doanh thu" },
-  { to: "/admin/statistics/orders", end: false, icon: <BarChart3 size={18} />, label: "Thống kê đơn hàng" },
-  { to: "/admin/statistics/coupons", end: false, icon: <BadgePercent size={18} />, label: "Thống kê coupon" },
-  { to: "/admin/statistics/users", end: false, icon: <Users size={18} />, label: "Thống kê user" },
-  { to: "/admin/statistics/payments", end: false, icon: <CreditCard size={18} />, label: "Thống kê payment" },
+  {
+    to: "/admin/statistics/revenue",
+    end: false,
+    icon: <ChartNoAxesCombined size={18} />,
+    label: "Thống kê doanh thu",
+  },
+  {
+    to: "/admin/statistics/orders",
+    end: false,
+    icon: <BarChart3 size={18} />,
+    label: "Thống kê đơn hàng",
+  },
+  {
+    to: "/admin/statistics/coupons",
+    end: false,
+    icon: <BadgePercent size={18} />,
+    label: "Thống kê coupon",
+  },
+  {
+    to: "/admin/statistics/users",
+    end: false,
+    icon: <Users size={18} />,
+    label: "Thống kê user",
+  },
+  {
+    to: "/admin/statistics/payments",
+    end: false,
+    icon: <CreditCard size={18} />,
+    label: "Thống kê payment",
+  },
 ];
 
 function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -94,12 +161,20 @@ function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
     <aside className="flex h-screen w-64 flex-col overflow-hidden border-r border-gray-200 bg-white text-gray-900 shadow-xl dark:border-gray-800 dark:bg-gray-950 dark:text-white">
       <header className="shrink-0 border-b border-gray-100 p-5 dark:border-gray-800">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 text-lg font-black text-white shadow-sm">
+          {/* <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 text-lg font-black text-white shadow-sm">
             P
           </div>
           <div>
             <div className="font-black text-gray-950 dark:text-white">PawMart</div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Admin Panel</div>
+          </div> */}
+          <div className="flex shrink-0 items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500 text-lg font-bold text-white">
+              🐾
+            </div>
+            <span className="text-xl font-bold text-gray-900 dark:text-white">
+              Paw<span className="text-amber-500">Mart</span>
+            </span>
           </div>
         </div>
       </header>
@@ -149,10 +224,15 @@ function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
                         )}
                       />
                       {item.icon}
-                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      <span className="min-w-0 flex-1 truncate">
+                        {item.label}
+                      </span>
                       <ChevronRight
                         size={14}
-                        className={cn("opacity-35 transition group-hover:translate-x-0.5", isActive && "opacity-70")}
+                        className={cn(
+                          "opacity-35 transition group-hover:translate-x-0.5",
+                          isActive && "opacity-70",
+                        )}
                       />
                     </span>
                   )}
@@ -170,7 +250,11 @@ function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
         <div className="mb-3 flex items-center gap-3 rounded-2xl bg-gray-50 p-3 dark:bg-gray-900">
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-orange-100 ring-1 ring-orange-200 dark:bg-orange-500/10 dark:ring-orange-500/20">
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.fullName} className="h-full w-full object-cover" />
+              <img
+                src={user.avatarUrl}
+                alt={user.fullName}
+                className="h-full w-full object-cover"
+              />
             ) : (
               <span className="flex h-full w-full items-center justify-center text-sm font-bold text-orange-500">
                 {user?.fullName?.[0]?.toUpperCase()}
@@ -178,8 +262,12 @@ function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
             )}
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-gray-950 dark:text-white">{user?.fullName}</div>
-            <div className="truncate text-xs text-gray-500 dark:text-gray-400">{user?.email}</div>
+            <div className="truncate text-sm font-semibold text-gray-950 dark:text-white">
+              {user?.fullName}
+            </div>
+            <div className="truncate text-xs text-gray-500 dark:text-gray-400">
+              {user?.email}
+            </div>
           </div>
         </div>
         <button
@@ -204,7 +292,10 @@ export function AdminLayout() {
 
       {sidebarOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => setSidebarOpen(false)}
+          />
           <div className="absolute left-0 top-0 h-full">
             <AdminSidebar onNavigate={() => setSidebarOpen(false)} />
           </div>
@@ -220,7 +311,9 @@ export function AdminLayout() {
           >
             <Menu size={20} />
           </button>
-          <div className="font-semibold text-gray-900 dark:text-white">Admin Panel</div>
+          <div className="font-semibold text-gray-900 dark:text-white">
+            Admin Panel
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto bg-gray-50 p-6 dark:bg-gray-950">
