@@ -11,6 +11,7 @@ const LIVE_SERVICE_URL = 'http://localhost:3012'; // Live Chat Service
 const UPLOAD_SERVICE_URL = 'http://localhost:3006';
 
 export default function ChatBot() {
+  
   const [isOpen, setIsOpen] = useState(() => {
     return sessionStorage.getItem('chatbot_open') === 'true';
   });
@@ -491,6 +492,47 @@ export default function ChatBot() {
     window.location.href = '/checkout';
   };
 
+  // Route-based UI hiding (UI-only). Keep component mounted so sockets/state persist.
+  // Use a reactive `currentPath` state and listen to history/navigation events
+  // so the chat UI updates immediately on SPA route changes without using
+  // React Router hooks (safe when component is mounted outside a Router).
+  const [currentPath, setCurrentPath] = useState(() => (typeof window !== 'undefined' && window.location ? window.location.pathname : '/'));
+
+  useEffect(() => {
+    const onLocationChange = () => setCurrentPath(window.location.pathname || '/');
+
+    // Patch pushState/replaceState to dispatch a custom event so we can
+    // observe SPA navigations that don't trigger popstate.
+    const origPush = history.pushState;
+    const origReplace = history.replaceState;
+    history.pushState = function () {
+      const result = origPush.apply(this, arguments);
+      window.dispatchEvent(new Event('locationchange'));
+      return result;
+    };
+    history.replaceState = function () {
+      const result = origReplace.apply(this, arguments);
+      window.dispatchEvent(new Event('locationchange'));
+      return result;
+    };
+
+    window.addEventListener('popstate', onLocationChange);
+    window.addEventListener('locationchange', onLocationChange);
+
+    return () => {
+      window.removeEventListener('popstate', onLocationChange);
+      window.removeEventListener('locationchange', onLocationChange);
+      // restore
+      history.pushState = origPush;
+      history.replaceState = origReplace;
+    };
+  }, []);
+
+  const hiddenExact = ['/login', '/logout', '/register', '/signup'];
+  const hiddenPrefixes = ['/auth'];
+  const shouldHideUI = hiddenExact.some(p => currentPath === p || currentPath.startsWith(p + '/')) || hiddenPrefixes.some(p => currentPath.startsWith(p));
+  if (shouldHideUI) return null;
+
   return (
     <>
       {/* Chat Button */}
@@ -745,7 +787,7 @@ export default function ChatBot() {
                 </div>
 
                 <div className="live-input">
-                  <input ref={liveInputRef} className="chat-bot-input live-input-field" placeholder="Nhập tin nhắn live..." onKeyDown={handleLiveKeyDown} />
+                  <input ref={liveInputRef} className="chat-bot-input live-input-field" placeholder="Nhập tin nhắn..." onKeyDown={handleLiveKeyDown} />
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <button type="button" className="icon-button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Emoji">
                         <Smile size={18} />
