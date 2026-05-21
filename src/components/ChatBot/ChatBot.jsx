@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { MessageCircle, X, Send, Image as ImageIcon, Smile } from 'lucide-react';
 import Picker from 'emoji-picker-react';
+import { Button } from '@/components/ui/Button';
 import { productService } from '@/services/product.service';
 import './ChatBot.css';
 
@@ -58,6 +59,8 @@ export default function ChatBot() {
   };
   const rawAuth = typeof window !== 'undefined' ? localStorage.getItem('authUser') : null;
   const authUser = safeParse(rawAuth);
+  const [liveLocked, setLiveLocked] = useState(false);
+  const isGuest = !authUser;
 
   // Save state to sessionStorage (auto-clear when browser closes)
   useEffect(() => {
@@ -127,7 +130,7 @@ export default function ChatBot() {
 
   // Handle live tab activation: setup live socket when needed
   useEffect(() => {
-    if (activeTab !== 'live') return;
+    if (activeTab !== 'live' || liveLocked) return;
 
     const ls = io(LIVE_SERVICE_URL, { transports: ['websocket', 'polling'] });
     setLiveSocket(ls);
@@ -501,7 +504,6 @@ export default function ChatBot() {
         ) : (
           <div className="chat-icon-wrapper">
             <MessageCircle size={28} />
-            <MessageCircle size={20} className="chat-icon-overlay" />
           </div>
         )}
       </button>
@@ -531,8 +533,22 @@ export default function ChatBot() {
 
           {/* Tabs */}
           <div className="chat-tabs">
-            <button className={`chat-tab ${activeTab==='ai' ? 'active':''}`} onClick={() => setActiveTab('ai')}>AI Chat</button>
-            <button className={`chat-tab ${activeTab==='live' ? 'active':''}`} onClick={() => setActiveTab('live')}>Live Chat</button>
+            <button className={`chat-tab ${activeTab==='ai' ? 'active':''}`} onClick={() => { setActiveTab('ai'); setLiveLocked(false); }}>AI Chat</button>
+            <button
+              className={`chat-tab ${activeTab==='live' ? 'active':''} ${isGuest ? 'disabled' : ''}`}
+              onClick={() => {
+                if (isGuest) {
+                  // show locked UI inside live tab for guests
+                  setActiveTab('live');
+                  setLiveLocked(true);
+                } else {
+                  setActiveTab('live');
+                  setLiveLocked(false);
+                }
+              }}
+            >
+              Live Chat
+            </button>
           </div>
           {/* Body: contains tab content with stable layout */}
           <div className="chat-bot-body">
@@ -616,35 +632,47 @@ export default function ChatBot() {
 
             {activeTab === 'live' && (
             <div className="live-container">
-              {authUser && authUser.role === 'admin' && (
-                <div className="live-sidebar">
-                  {conversations.map((c) => (
-                      <div key={c._id} className={`conversation-item ${currentConversationId===c._id ? 'active' : ''}`} onClick={() => {
-                        setCurrentConversationId(c._id);
-                        // fetch messages
-                        fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${c._id}/messages`).then(r=>r.json()).then(res=>{
-                          if (res.success) setLiveMessages(res.data);
-                        }).catch(e=>console.error(e));
-                        // join the room as admin
-                        liveSocket?.emit('joinConversation', { conversationId: c._id, userId: authUser.id || authUser._id || 'admin_1', role: 'admin' });
-                      }}>
-                        <div className="left">
-                          <img src={c.customerAvatar || '/default-avatar.png'} alt={c.customerName || c.customerId} />
-                          <div>
-                            <div className="customer-name">{c.customerName || c.customerId}</div>
-                            <div className="meta">{c._preview || c.lastMessage || '—'}</div>
-                            <div className="timestamp">{(c._lastMessageAt || c.lastMessageAt) ? new Date(c._lastMessageAt || c.lastMessageAt).toLocaleString() : ''}</div>
+              {liveLocked ? (
+                <div className="live-locked">
+                  <div className="live-locked-inner">
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
+                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Bạn cần đăng nhập để sử dụng Live Chat</div>
+                    <div style={{ marginBottom: 8, color: '#6b7280' }}>Live Chat chỉ dành cho tài khoản đã đăng nhập.</div>
+                      <div>
+                      <Button size="lg" onClick={() => { window.location.href = '/login'; }}>Đăng nhập ngay</Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="live-inner" style={{ display: 'contents' }}>
+                  {authUser && authUser.role === 'admin' && (
+                    <div className="live-sidebar">
+                      {conversations.map((c) => (
+                        <div key={c._id} className={`conversation-item ${currentConversationId===c._id ? 'active' : ''}`} onClick={() => {
+                          setCurrentConversationId(c._id);
+                          // fetch messages
+                          fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${c._id}/messages`).then(r=>r.json()).then(res=>{
+                            if (res.success) setLiveMessages(res.data);
+                          }).catch(e=>console.error(e));
+                          // join the room as admin
+                          liveSocket?.emit('joinConversation', { conversationId: c._id, userId: authUser.id || authUser._id || 'admin_1', role: 'admin' });
+                        }}>
+                          <div className="left">
+                            <img src={c.customerAvatar || '/default-avatar.png'} alt={c.customerName || c.customerId} />
+                            <div>
+                              <div className="customer-name">{c.customerName || c.customerId}</div>
+                              <div className="meta">{c._preview || c.lastMessage || '—'}</div>
+                              <div className="timestamp">{(c._lastMessageAt || c.lastMessageAt) ? new Date(c._lastMessageAt || c.lastMessageAt).toLocaleString() : ''}</div>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                </div>
-              )}
+                      ))}
+                    </div>
+                  )}
 
-              <div className="live-main">
-                <div className="live-messages">
-                    {(() => {
-                      const nodes = [];
+                  <div className="live-main">
+                    <div className="live-messages">
+                    {liveMessages.map((m, i) => {
                       const isSameDay = (a, b) => {
                         if (!a || !b) return false;
                         const da = new Date(a);
@@ -657,7 +685,6 @@ export default function ChatBot() {
                         const today = new Date();
                         const yesterday = new Date();
                         yesterday.setDate(today.getDate() - 1);
-
                         if (isSameDay(d, today)) return 'Hôm nay';
                         if (isSameDay(d, yesterday)) return 'Hôm qua';
                         const dd = String(d.getDate()).padStart(2, '0');
@@ -668,28 +695,20 @@ export default function ChatBot() {
 
                       const formatTime = (iso) => {
                         if (!iso) return '';
-                        try {
-                          return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-                        } catch (e) { return ''; }
+                        try { return new Date(iso).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; }
                       };
 
-                      for (let i = 0; i < liveMessages.length; i++) {
-                        const m = liveMessages[i];
-                        const prev = liveMessages[i - 1];
+                      const prev = liveMessages[i - 1];
+                      const showDate = !prev || !isSameDay(m.createdAt, prev?.createdAt);
+                      const isMe = m.senderId === currentUserId;
+                      const alignClass = isMe ? 'chat-message-user' : 'chat-message-bot';
+                      const name = m.senderName || (m.senderRole === 'admin' ? 'Admin' : (m.senderId || 'User'));
+                      const avatar = m.senderAvatar || '';
 
-                        if (!prev || !isSameDay(m.createdAt, prev.createdAt)) {
-                          nodes.push(
-                            <div key={`sep_${i}`} className="date-separator">{formatDateLabel(m.createdAt)}</div>
-                          );
-                        }
-
-                        const isMe = m.senderId === currentUserId;
-                        const alignClass = isMe ? 'chat-message-user' : 'chat-message-bot';
-                        const name = m.senderName || (m.senderRole === 'admin' ? 'Admin' : (m.senderId || 'User'));
-                        const avatar = m.senderAvatar || '';
-
-                        nodes.push(
-                          <div key={m._id || i} className={`chat-message ${alignClass}`}>
+                      return (
+                        <div key={m._id || i}>
+                          {showDate && <div className="date-separator">{formatDateLabel(m.createdAt)}</div>}
+                          <div className={`chat-message ${alignClass}`}>
                             <div style={{display:'flex',gap:8,alignItems:'flex-end', justifyContent: isMe ? 'flex-end' : 'flex-start'}}>
                               {!isMe && (
                                 <img src={avatar || '/default-avatar.png'} alt={name} style={{width:32,height:32,borderRadius:16,objectFit:'cover'}} />
@@ -719,11 +738,9 @@ export default function ChatBot() {
                               </div>
                             </div>
                           </div>
-                        );
-                      }
-
-                      return nodes;
-                    })()}
+                        </div>
+                      );
+                    })}
                   <div ref={liveMessagesEndRef} />
                 </div>
 
@@ -772,7 +789,9 @@ export default function ChatBot() {
                     )}
                 </div>
               </div>
-            </div>
+                </div>
+              )}</div>
+                  
           )}
           </div>
 
