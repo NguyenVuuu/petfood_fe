@@ -885,7 +885,7 @@ function AppointmentsTabContent() {
   // Fetch slots from backend for selected date
   const fetchSlots = async (date: string) => {
     try {
-      const res = await fetch(`http://localhost:3013/api/appointments/slots?date=${date}`);
+      const res = await fetch(`/api/appointments/slots?date=${date}`);
       const data = await res.json();
       if (res.ok && data.success && Array.isArray(data.slots)) {
         const map: Record<SlotKey, number> = {};
@@ -952,7 +952,7 @@ function AppointmentsTabContent() {
         }
       } catch (e) {}
 
-      const res = await fetch('http://localhost:3013/api/appointments', {
+      const res = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
