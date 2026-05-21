@@ -5,12 +5,14 @@ import { Toaster } from "sonner";
 import { router } from "./router/index.tsx";
 import { store } from "./store/index.ts";
 import { queryClient } from "./lib/queryClient.ts";
+import ChatBot from "./components/ChatBot";
 
 function App() {
   return (
     <Provider store={store}>
       <QueryClientProvider client={queryClient}>
         <RouterProvider router={router} />
+         <ChatBot />
         <Toaster
           position="top-right"
           richColors
