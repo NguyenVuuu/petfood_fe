@@ -34,6 +34,7 @@ const AdminPendingOrdersPage = lazy(() => import("@/pages/admin/AdminPendingOrde
 const AdminBankingPaymentsPage = lazy(() => import("@/pages/admin/AdminBankingPaymentsPage"));
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
 const AdminCouponsPage = lazy(() => import("@/pages/admin/AdminCouponsPage"));
+const AdminReviewsPage = lazy(() => import("@/pages/admin/AdminReviewsPage"));
 const RevenueStatisticsPage = lazy(() => import("@/pages/admin/statistics/RevenueStatisticsPage"));
 const OrderStatisticsPage = lazy(() => import("@/pages/admin/statistics/OrderStatisticsPage"));
 const ProductStatisticsPage = lazy(() => import("@/pages/admin/statistics/ProductStatisticsPage"));
@@ -139,6 +140,7 @@ export const router = createBrowserRouter([
       { path: "payments/banking", element: <S><AdminBankingPaymentsPage /></S> },
       { path: "users", element: <S><AdminUsersPage /></S> },
       { path: "coupons", element: <S><AdminCouponsPage /></S> },
+      { path: "reviews", element: <S><AdminReviewsPage /></S> },
       { path: "statistics/revenue", element: <S><RevenueStatisticsPage /></S> },
       { path: "statistics/orders", element: <S><OrderStatisticsPage /></S> },
       { path: "statistics/products", element: <S><ProductStatisticsPage /></S> },

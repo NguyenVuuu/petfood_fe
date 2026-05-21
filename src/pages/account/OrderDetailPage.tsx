@@ -1,16 +1,67 @@
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, CreditCard, MapPin, Package, Truck } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, MapPin, Package, Star, Truck } from "lucide-react";
 import { orderService } from "@/services/order.service";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { StatusBadge } from "@/components/account/StatusBadge";
 import { formatPrice, getImageUrl } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { ReviewDialog } from "@/components/review/ReviewDialog";
+import { useProductReviews } from "@/hooks/useReviews";
+import { useAppSelector } from "@/hooks/useAppDispatch";
+import { Order, OrderItem, Review } from "@/types";
 
 const fmt = (v?: string | null) =>
   v
     ? new Intl.DateTimeFormat("vi-VN", { dateStyle: "long", timeStyle: "short" }).format(new Date(v))
     : "-";
+
+function OrderItemReviewAction({ order, item }: { order: Order; item: OrderItem }) {
+  const { user } = useAppSelector((state) => state.auth);
+  const currentUserId = user?.id ?? user?._id ?? "";
+  const [isOpen, setIsOpen] = useState(false);
+  const canReview = order.orderStatus === "completed" && order.paymentStatus === "paid";
+  const { data } = useProductReviews(canReview ? item.productId : "");
+
+  const existingReview = useMemo<Review | null>(() => {
+    if (!currentUserId) return null;
+    return (
+      data?.reviews?.find(
+        (review) =>
+          review.orderId === order._id &&
+          review.productId === item.productId &&
+          review.userId === currentUserId,
+      ) ?? null
+    );
+  }, [currentUserId, data?.reviews, item.productId, order._id]);
+
+  if (!canReview) return null;
+
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant={existingReview ? "outline" : "primary"}
+        onClick={() => setIsOpen(true)}
+      >
+        {existingReview ? <CheckCircle2 size={14} /> : <Star size={14} />}
+        {existingReview ? "Edit Review" : "Write Review"}
+      </Button>
+      <ReviewDialog
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        productId={item.productId}
+        orderId={order._id}
+        productName={item.name}
+        imageUrl={item.imageUrl}
+        initialReview={existingReview}
+      />
+    </>
+  );
+}
 
 export default function OrderDetailPage() {
   const { id = "" } = useParams();
@@ -69,6 +120,9 @@ export default function OrderDetailPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-gray-900 dark:text-white">{item.name}</p>
                     <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
+                    <div className="mt-2">
+                      <OrderItemReviewAction order={order} item={item} />
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-gray-900 dark:text-white">{formatPrice(item.price)}</p>

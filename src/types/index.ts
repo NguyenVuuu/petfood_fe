@@ -113,13 +113,18 @@ export interface Product {
 export interface Review {
   _id: string;
   productId: string;
+  orderId: string;
   userId: string;
   fullName: string;
   avatarUrl?: string;
   rating: number;
   comment: string;
+  images?: Array<{ url: string; publicId?: string }>;
   status: "visible" | "hidden";
-  verifiedPurchase: boolean;
+  isVerifiedPurchase?: boolean;
+  verifiedPurchase?: boolean;
+  hiddenReason?: string;
+  hiddenAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -127,17 +132,37 @@ export interface Review {
 export interface ReviewSummary {
   averageRating: number;
   totalReviews: number;
+  ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number>;
 }
 
 export interface ReviewPayload {
+  productId: string;
+  orderId: string;
   rating: number;
   comment: string;
+  images?: Array<{ url: string; publicId?: string }>;
 }
 
 export interface ReviewListResponse {
+  success?: boolean;
   reviews: Review[];
   summary: ReviewSummary;
-  myReview: Review | null;
+  meta?: ProductListMeta;
+}
+
+export interface AdminReviewListParams {
+  page?: number;
+  limit?: number;
+  status?: "visible" | "hidden" | "all";
+  search?: string;
+  productId?: string;
+  userId?: string;
+}
+
+export interface AdminReviewListResponse {
+  success?: boolean;
+  reviews: Review[];
+  meta: ProductListMeta;
 }
 
 export interface ProductListParams {
