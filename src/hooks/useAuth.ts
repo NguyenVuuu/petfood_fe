@@ -44,7 +44,13 @@ export function useAuth() {
       );
       await mergeGuestCartAfterLogin();
       toast.success(`Welcome back, ${data.user.fullName}! 🐾`);
-      navigate(data.user.role === "admin" ? "/admin" : "/");
+      if (data.user.role === "admin") {
+        navigate("/admin");
+      } else if (data.user.role === "support") {
+        navigate("/support");
+      } else {
+        navigate("/");
+      }
     },
     onError: (error: {
       response?: {
@@ -105,6 +111,7 @@ export function useAuth() {
     isAuthenticated,
     accessToken,
     isAdmin: user?.role === "admin",
+    isSupport: user?.role === "support",
     login: loginMutation.mutate,
     inactiveAccount,
     clearInactiveAccount: () => setInactiveAccount(null),

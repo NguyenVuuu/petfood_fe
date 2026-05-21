@@ -14,6 +14,8 @@ const VnpayReturnPage = lazy(() => import("@/pages/payment/VnpayReturnPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
+const AppointmentPage = lazy(() => import("@/pages/AppointmentPage"));
+const SupportDashboard = lazy(() => import("@/pages/SupportDashboard"));
 
 const AccountLayout = lazy(() => import("@/pages/account/AccountLayout"));
 const AccountProfilePage = lazy(() => import("@/pages/account/ProfilePage"));
@@ -69,6 +71,14 @@ function RequireAdmin({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireSupport({ children }: { children: React.ReactNode }) {
+  const raw = localStorage.getItem("authUser");
+  const user = raw ? JSON.parse(raw) : null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "support" && user.role !== "admin") return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
 export const router = createBrowserRouter([
   {
     path: "/",
@@ -95,6 +105,7 @@ export const router = createBrowserRouter([
         path: "payment/vnpay-return",
         element: <RequireAuth><S><VnpayReturnPage /></S></RequireAuth>,
       },
+      { path: "appointment", element: <S><AppointmentPage /></S> },
     ],
   },
   { path: "/login", element: <S><LoginPage /></S> },
@@ -137,6 +148,10 @@ export const router = createBrowserRouter([
       { path: "statistics/users", element: <S><UserStatisticsPage /></S> },
       { path: "statistics/payments", element: <S><PaymentStatisticsPage /></S> },
     ],
+  },
+  {
+    path: "/support",
+    element: <RequireSupport><S><SupportDashboard /></S></RequireSupport>,
   },
   { path: "*", element: <Navigate to="/" replace /> },
 ]);

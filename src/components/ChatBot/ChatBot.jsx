@@ -141,12 +141,12 @@ export default function ChatBot() {
       try {
         const raw = localStorage.getItem('authUser');
         const user = safeParse(raw);
-        if (user && user.role === 'admin') {
-          // set current user info for admin
+        if (user && (user.role === 'admin' || user.role === 'support')) {
+          // set current user info for admin or support
           setCurrentUserId(user.id || user._id || 'admin_1');
-          setCurrentUserName(user.name || user.fullName || user.username || 'Admin');
+          setCurrentUserName(user.name || user.fullName || user.username || 'Support');
           setCurrentUserAvatar(user.avatar || user.picture || '');
-          ls.emit('joinConversation', { conversationId: null, userId: user.id || user._id || 'admin_1', role: 'admin' });
+          ls.emit('joinConversation', { conversationId: null, userId: user.id || user._id || 'admin_1', role: user.role });
         } else if (user) {
           // customer: create/get conversation via REST then join
           const customerId = user.id || user._id;
@@ -283,7 +283,7 @@ export default function ChatBot() {
 
     // prepare sender info from stored current user
     const senderId = currentUserId || (authUser && (authUser.id || authUser._id)) || `guest_${Date.now()}`;
-    const senderRole = authUser && authUser.role === 'admin' ? 'admin' : 'customer';
+    const senderRole = authUser && (authUser.role === 'admin' || authUser.role === 'support') ? authUser.role : 'customer';
     const senderName = currentUserName || (authUser && (authUser.name || authUser.fullName || authUser.username)) || 'Guest';
     const senderAvatar = currentUserAvatar || (authUser && (authUser.avatar || authUser.picture)) || '';
 
@@ -372,7 +372,7 @@ export default function ChatBot() {
 
       // emit image message
       const senderId = currentUserId || (authUser && (authUser.id || authUser._id)) || `guest_${Date.now()}`;
-      const senderRole = authUser && authUser.role === 'admin' ? 'admin' : 'customer';
+      const senderRole = authUser && (authUser.role === 'admin' || authUser.role === 'support') ? authUser.role : 'customer';
       const senderName = currentUserName || (authUser && (authUser.name || authUser.fullName || authUser.username)) || 'Guest';
       const senderAvatar = currentUserAvatar || (authUser && (authUser.avatar || authUser.picture)) || '';
 
@@ -434,7 +434,7 @@ export default function ChatBot() {
   const handleSelectProduct = (product) => {
     if (!liveSocket || !currentConversationId) return;
     const senderId = currentUserId || (authUser && (authUser.id || authUser._id)) || `guest_${Date.now()}`;
-    const senderRole = authUser && authUser.role === 'admin' ? 'admin' : 'customer';
+    const senderRole = authUser && (authUser.role === 'admin' || authUser.role === 'support') ? authUser.role : 'customer';
     const senderName = currentUserName || (authUser && (authUser.name || authUser.fullName || authUser.username)) || 'Guest';
     const senderAvatar = currentUserAvatar || (authUser && (authUser.avatar || authUser.picture)) || '';
 
@@ -528,7 +528,7 @@ export default function ChatBot() {
     };
   }, []);
 
-  const hiddenExact = ['/login', '/logout', '/register', '/signup'];
+  const hiddenExact = ['/login', '/support', '/register', '/admin'];
   const hiddenPrefixes = ['/auth'];
   const shouldHideUI = hiddenExact.some(p => currentPath === p || currentPath.startsWith(p + '/')) || hiddenPrefixes.some(p => currentPath.startsWith(p));
   if (shouldHideUI) return null;
@@ -687,7 +687,7 @@ export default function ChatBot() {
                 </div>
               ) : (
                 <div className="live-inner" style={{ display: 'contents' }}>
-                  {authUser && authUser.role === 'admin' && (
+                  {authUser && (authUser.role === 'admin' || authUser.role === 'support') && (
                     <div className="live-sidebar">
                       {conversations.map((c) => (
                         <div key={c._id} className={`conversation-item ${currentConversationId===c._id ? 'active' : ''}`} onClick={() => {
@@ -697,7 +697,7 @@ export default function ChatBot() {
                             if (res.success) setLiveMessages(res.data);
                           }).catch(e=>console.error(e));
                           // join the room as admin
-                          liveSocket?.emit('joinConversation', { conversationId: c._id, userId: authUser.id || authUser._id || 'admin_1', role: 'admin' });
+                          liveSocket?.emit('joinConversation', { conversationId: c._id, userId: authUser.id || authUser._id || 'admin_1', role: authUser.role });
                         }}>
                           <div className="left">
                             <img src={c.customerAvatar || '/default-avatar.png'} alt={c.customerName || c.customerId} />
@@ -744,7 +744,7 @@ export default function ChatBot() {
                       const showDate = !prev || !isSameDay(m.createdAt, prev?.createdAt);
                       const isMe = m.senderId === currentUserId;
                       const alignClass = isMe ? 'chat-message-user' : 'chat-message-bot';
-                      const name = m.senderName || (m.senderRole === 'admin' ? 'Admin' : (m.senderId || 'User'));
+                      const name = m.senderName || (m.senderRole === 'admin' || m.senderRole === 'support' ? 'Support' : (m.senderId || 'User'));
                       const avatar = m.senderAvatar || '';
 
                       return (

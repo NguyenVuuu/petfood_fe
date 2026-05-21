@@ -3,7 +3,7 @@ export interface User {
   _id?: string;
   fullName: string;
   email: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "support";
   isActive?: boolean;
   inactiveReason?: string | null;
   inactiveAt?: string | null;
