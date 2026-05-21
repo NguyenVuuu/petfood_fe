@@ -159,14 +159,6 @@ export function MegaMenu() {
           </div>
         );
       })}
-
-      {/* Appointment Button */}
-      <Link
-        to="/appointment"
-        className="ml-2 inline-flex items-center gap-1 rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-amber-600 dark:hover:bg-amber-600"
-      >
-        🐾 Đặt lịch hẹn
-      </Link>
     </nav>
   );
 }

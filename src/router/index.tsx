@@ -14,7 +14,6 @@ const VnpayReturnPage = lazy(() => import("@/pages/payment/VnpayReturnPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
-const AppointmentPage = lazy(() => import("@/pages/AppointmentPage"));
 const SupportDashboard = lazy(() => import("@/pages/SupportDashboard"));
 
 const AccountLayout = lazy(() => import("@/pages/account/AccountLayout"));
@@ -104,8 +103,7 @@ export const router = createBrowserRouter([
       {
         path: "payment/vnpay-return",
         element: <RequireAuth><S><VnpayReturnPage /></S></RequireAuth>,
-      },
-      { path: "appointment", element: <S><AppointmentPage /></S> },
+      }
     ],
   },
   { path: "/login", element: <S><LoginPage /></S> },

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { X, Send, Image as ImageIcon, Smile, Menu, MessageSquare, Calendar, Clock, LogOut, ChevronRight } from "lucide-react";
 import Picker from "emoji-picker-react";
+import { productService } from "@/services/product.service";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 
@@ -151,6 +152,16 @@ function ChatTabContent() {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [showProductPicker, setShowProductPicker] = useState(false);
+  const [productQuery, setProductQuery] = useState("");
+  const [productResults, setProductResults] = useState<any[]>([]);
+  const [isSearchingProducts, setIsSearchingProducts] = useState(false);
+  const productPickerRef = useRef<HTMLDivElement | null>(null);
+  const emojiPickerRef = useRef<HTMLDivElement | null>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [typingMap, setTypingMap] = useState<Record<string, boolean>>({});
+  const typingTimeouts = useRef<Record<string, any>>({});
+  const localTypingIdle = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const currentConversation = conversations.find((c) => c._id === currentConversationId);
@@ -207,8 +218,61 @@ function ChatTabContent() {
       if (data.messages) {
         setLiveMessages(data.messages);
       } else if (data.message) {
-        setLiveMessages((prev) => [...prev, data.message]);
+        const msg = data.message;
+        setLiveMessages((prev) => [...prev, msg]);
+
+        // Update conversation preview and move conversation to top in sidebar in real-time
+        setConversations((prev) => {
+          try {
+            const convId = msg.conversationId;
+            const senderLabel = msg.senderName || (msg.senderRole === "admin" || msg.senderRole === "support" ? "Support" : "User");
+            const preview = `${senderLabel}: ${msg.message || ''}`;
+
+            const others = prev.filter((c) => c._id !== convId);
+            const exists = prev.find((c) => c._id === convId);
+            if (exists) {
+              const updated = { ...exists, _preview: preview, _lastMessageAt: msg.createdAt || new Date().toISOString() } as Conversation;
+              return [updated, ...others];
+            }
+
+            // If conversation not present, add it to the top
+            const newConv: Conversation = {
+              _id: convId,
+              customerId: msg.senderId || '',
+              customerName: msg.senderName || 'User',
+              customerAvatar: msg.senderAvatar || undefined,
+              lastMessage: msg.message || '',
+              _preview: preview,
+              _lastMessageAt: msg.createdAt || new Date().toISOString(),
+            };
+            return [newConv, ...others];
+          } catch (e) {
+            return prev;
+          }
+        });
       }
+    });
+
+    // Listen for typing events
+    ls.on('typing', (data) => {
+      if (!data || !data.conversationId) return;
+      const convId = data.conversationId;
+      // if server says typing:false, clear immediately
+      if (data.typing === false) {
+        if (typingTimeouts.current[convId]) {
+          clearTimeout(typingTimeouts.current[convId]);
+          delete typingTimeouts.current[convId];
+        }
+        setTypingMap((p) => ({ ...p, [convId]: false }));
+        return;
+      }
+      // otherwise mark typing true and set auto-clear
+      setTypingMap((p) => ({ ...p, [convId]: true }));
+      if (typingTimeouts.current[convId]) clearTimeout(typingTimeouts.current[convId]);
+      typingTimeouts.current[convId] = setTimeout(() => {
+        setTypingMap((p) => ({ ...p, [convId]: false }));
+        delete typingTimeouts.current[convId];
+      }, 2000);
     });
 
     ls.on("error", (err) => console.error("Live socket error", err));
@@ -223,6 +287,50 @@ function ChatTabContent() {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [liveMessages]);
+
+  // Product picker search when opened
+  useEffect(() => {
+    if (!showProductPicker) return;
+    let mounted = true;
+    let t: any = null;
+    const doSearch = async (q: string) => {
+      try {
+        setIsSearchingProducts(true);
+        const res = await productService.listProducts({ keyword: q || "", limit: 10 });
+        if (!mounted) return;
+        setProductResults(res.items || []);
+      } catch (err) {
+        console.error("product search error", err);
+      } finally {
+        setIsSearchingProducts(false);
+      }
+    };
+
+    t = setTimeout(() => doSearch(productQuery), 250);
+    return () => {
+      mounted = false;
+      clearTimeout(t);
+    };
+  }, [productQuery, showProductPicker]);
+
+  // Close pickers when clicking outside
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
+      const inProduct = productPickerRef.current && productPickerRef.current.contains(target);
+      const inEmoji = emojiPickerRef.current && emojiPickerRef.current.contains(target);
+      const onEmojiButton = emojiButtonRef.current && emojiButtonRef.current.contains(target);
+
+      if (!inProduct && !inEmoji && !onEmojiButton) {
+        // click outside both pickers and the emoji button -> close both
+        if (showProductPicker) setShowProductPicker(false);
+        if (showEmojiPicker) setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showProductPicker, showEmojiPicker]);
 
   const handleSelectConversation = (conversationId: string) => {
     setCurrentConversationId(conversationId);
@@ -239,6 +347,20 @@ function ChatTabContent() {
     });
   };
 
+  // Emit typing events (support user typing)
+  const emitTyping = () => {
+    if (!socket || !currentConversationId) return;
+    try {
+      socket.emit('typing', { conversationId: currentConversationId, senderId: currentUserId, senderRole: authUser?.role, typing: true });
+    } catch (e) {}
+    if (localTypingIdle.current) clearTimeout(localTypingIdle.current);
+    localTypingIdle.current = setTimeout(() => {
+      try {
+        socket.emit('typing', { conversationId: currentConversationId, senderId: currentUserId, senderRole: authUser?.role, typing: false });
+      } catch (e) {}
+    }, 1500);
+  };
+
   const handleSendMessage = (text: string) => {
     if (!socket || !currentConversationId) return;
     socket.emit("sendMessage", {
@@ -249,6 +371,39 @@ function ChatTabContent() {
       senderName: authUser?.fullName || "Support",
       senderAvatar: authUser?.avatarUrl || "",
     });
+    // Optimistically move conversation to top and update preview
+    setConversations((prev) => {
+      try {
+        const convId = currentConversationId as string;
+        const others = prev.filter((c) => c._id !== convId);
+        const exists = prev.find((c) => c._id === convId);
+        const preview = `${authUser?.fullName || 'Support'}: ${text}`;
+        if (exists) {
+          const updated: Conversation = { ...exists, _preview: preview, _lastMessageAt: new Date().toISOString() };
+          return [updated, ...others];
+        }
+        const newConv: Conversation = {
+          _id: convId,
+          customerId: currentUserId || '',
+          customerName: currentConversation?.customerName || 'User',
+          customerAvatar: currentConversation?.customerAvatar,
+          lastMessage: text,
+          _preview: preview,
+          _lastMessageAt: new Date().toISOString(),
+        };
+        return [newConv, ...others];
+      } catch (e) {
+        return prev;
+      }
+    });
+    // stop typing indicator for this conversation
+    try {
+      socket.emit('typing', { conversationId: currentConversationId, senderId: currentUserId, senderRole: authUser?.role, typing: false });
+    } catch (e) {}
+    if (localTypingIdle.current) {
+      clearTimeout(localTypingIdle.current);
+      localTypingIdle.current = null;
+    }
   };
 
   const handleUploadFile = async (file: File) => {
@@ -306,6 +461,31 @@ function ChatTabContent() {
     }
   };
 
+  const handleSelectProduct = (product: any) => {
+    if (!socket || !currentConversationId) return;
+    const productData = {
+      _id: product._id,
+      name: product.name,
+      slug: product.slug,
+      imageUrl: product.imageUrl,
+      price: product.price,
+    };
+
+    socket.emit("sendMessage", {
+      conversationId: currentConversationId,
+      senderId: currentUserId,
+      senderRole: authUser?.role,
+      message: "",
+      messageType: "product",
+      productId: product._id,
+      productData,
+      senderName: authUser?.fullName || "Support",
+      senderAvatar: authUser?.avatarUrl || "",
+    });
+
+    setShowProductPicker(false);
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-1 gap-4">
       {/* Conversations Sidebar */}
@@ -345,8 +525,16 @@ function ChatTabContent() {
           <>
             {/* Chat Header */}
             <div className="shrink-0 border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
-              <div className="font-semibold text-gray-950 dark:text-white">{currentConversation?.customerName}</div>
-              <div className="text-sm text-gray-500 dark:text-gray-400">{currentConversation?.customerId}</div>
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full overflow-hidden bg-gray-100">
+                  {currentConversation?.customerAvatar ? (
+                    <img src={currentConversation.customerAvatar} alt={currentConversation.customerName} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-sm text-gray-600">U</div>
+                  )}
+                </div>
+                <div className="font-semibold text-gray-950 dark:text-white">{currentConversation?.customerName}</div>
+              </div>
             </div>
 
             {/* Messages */}
@@ -395,7 +583,7 @@ function ChatTabContent() {
                             )}
                             <div className="text-left">
                               <div className="font-semibold text-sm">{msg.productData.name}</div>
-                              <div className="text-sm text-orange-600 font-bold">${msg.productData.price}</div>
+                              <div className="text-sm text-orange-600 font-bold">{(msg.productData.price || 0).toLocaleString('vi-VN')}đ</div>
                             </div>
                           </button>
                         )}
@@ -421,24 +609,21 @@ function ChatTabContent() {
                   </div>
                 );
               })}
+              {typingMap[currentConversationId || ''] && (
+                <div className="px-4 py-2 text-sm text-gray-500 dark:text-gray-400">Đang nhập...</div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Chat Input */}
             <div className="shrink-0 border-t border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-              <div className="relative mb-3">
-                {showEmojiPicker && (
-                  <div className="absolute bottom-14 left-0 z-50">
-                    <Picker onEmojiClick={(e) => setInputText(inputText + e.emoji)} />
-                  </div>
-                )}
-              </div>
+              <div className="mb-3" />
 
-              <div className="flex gap-2">
+              <div className="relative flex gap-2">
                 <input
                   type="text"
                   value={inputText}
-                  onChange={(e) => setInputText(e.target.value)}
+                  onChange={(e) => { setInputText(e.target.value); emitTyping(); }}
                   onKeyPress={(e) => {
                     if (e.key === "Enter" && inputText.trim()) {
                       handleSendMessage(inputText);
@@ -449,6 +634,14 @@ function ChatTabContent() {
                   className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm placeholder-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
                 />
 
+                <button
+                  ref={emojiButtonRef}
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  className="rounded-2xl bg-gray-100 p-2.5 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition"
+                >
+                  <Smile size={18} className="text-gray-600 dark:text-gray-300" />
+                </button>
+                
                 <label className="flex items-center justify-center rounded-2xl bg-gray-100 p-2.5 cursor-pointer hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition">
                   <ImageIcon size={18} className="text-gray-600 dark:text-gray-300" />
                   <input
@@ -463,12 +656,15 @@ function ChatTabContent() {
                   />
                 </label>
 
-                <button
-                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                  className="rounded-2xl bg-gray-100 p-2.5 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition"
-                >
-                  <Smile size={18} className="text-gray-600 dark:text-gray-300" />
-                </button>
+                  <button
+                    onClick={() => setShowProductPicker((s) => !s)}
+                    className="rounded-2xl bg-gray-100 p-2.5 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition"
+                    title="Gửi sản phẩm"
+                  >
+                    🛍️
+                  </button>
+
+                
 
                 <button
                   onClick={() => {
@@ -483,6 +679,39 @@ function ChatTabContent() {
                   <Send size={18} />
                 </button>
               </div>
+
+              {showProductPicker && (
+                <div
+                  ref={productPickerRef}
+                  style={{ position: "absolute", bottom: 80, right: 20, zIndex: 60, width: 360, height: 420, display: "flex", flexDirection: "column", background: "white", borderRadius: 8, boxShadow: "0 8px 24px rgba(15,23,42,0.12)", padding: 12 }}
+                >
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                    <input value={productQuery} onChange={(e) => setProductQuery(e.target.value)} placeholder="Tìm sản phẩm..." style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid #e5e7eb" }} />
+                  </div>
+
+                  <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {isSearchingProducts ? <div>Đang tìm...</div> : null}
+                    {productResults.map((p) => (
+                      <div key={p._id} onClick={() => handleSelectProduct(p)} style={{ display: "flex", gap: 8, alignItems: "center", padding: 8, cursor: "pointer", borderRadius: 6 }}>
+                        <img src={p.imageUrl || "https://placehold.co/80x80"} alt={p.name} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 8, flex: "0 0 56px" }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                          <div style={{ fontSize: 12, color: "#6b7280" }}>{(p.price || 0).toLocaleString("vi-VN")}đ</div>
+                        </div>
+                      </div>
+                    ))}
+                    {productResults.length === 0 && !isSearchingProducts && (
+                      <div style={{ padding: 8, color: "#6b7280" }}>Không tìm thấy sản phẩm</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {showEmojiPicker && (
+                <div ref={emojiPickerRef} style={{ position: 'absolute', bottom: 72, right: 56, zIndex: 70 }}>
+                  <Picker onEmojiClick={(e) => setInputText((v) => v + (e.emoji || ''))} />
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -503,8 +732,6 @@ function ChatTabContent() {
 const MORNING = { start: 8, end: 12 };
 const AFTERNOON = { start: 13, end: 17 };
 const MAX_PER_SLOT = 3;
-// Mỗi lịch hẹn chiếm 1 tiếng = ảnh hưởng slot đã chọn + 2 slot 30ph tiếp theo
-const SLOTS_OCCUPIED_PER_BOOKING = 2; // số slot tiếp theo bị ảnh hưởng
 
 type SlotKey = string; // "YYYY-MM-DD_HH:mm"
 
@@ -537,50 +764,10 @@ const ALL_SLOT_LABELS = buildSlotLabels();
  * Khi ai đặt slot X (1 tiếng), slot X, X+30ph, X+60ph đều bị -1 chỗ.
  * Nhưng không được tràn qua giữa buổi (sáng/chiều).
  */
-function getEffectiveCounts(
-  dateStr: string,
-  bookings: Record<SlotKey, number>
-): Record<string, number> {
-  const effective: Record<string, number> = {};
-  ALL_SLOT_LABELS.forEach((label) => (effective[label] = 0));
-
-  ALL_SLOT_LABELS.forEach((label, idx) => {
-    const key: SlotKey = `${dateStr}_${label}`;
-    const directBookings = bookings[key] ?? 0;
-    if (directBookings === 0) return;
-
-    // Xác định buổi của slot này
-    const h = parseInt(label.split(":")[0]);
-    const inMorning = h >= MORNING.start && h < MORNING.end;
-    const inAfternoon = h >= AFTERNOON.start && h < AFTERNOON.end;
-
-    // Cộng vào slot hiện tại và 2 slot tiếp theo (nếu cùng buổi)
-    for (let offset = 0; offset <= SLOTS_OCCUPIED_PER_BOOKING; offset++) {
-      const targetIdx = idx + offset;
-      if (targetIdx >= ALL_SLOT_LABELS.length) break;
-      const targetLabel = ALL_SLOT_LABELS[targetIdx];
-      const th = parseInt(targetLabel.split(":")[0]);
-      // Không tràn qua buổi
-      const targetInMorning = th >= MORNING.start && th <= MORNING.end;
-      const targetInAfternoon = th >= AFTERNOON.start && th <= AFTERNOON.end;
-      if (inMorning && !targetInMorning) break;
-      if (inAfternoon && !targetInAfternoon) break;
-      effective[targetLabel] = (effective[targetLabel] ?? 0) + directBookings;
-    }
-  });
-
-  return effective;
-}
-
-function getTimeSlots(
-  dateStr: string,
-  now: Date,
-  bookings: Record<SlotKey, number>
-): SlotInfo[] {
-  const effective = getEffectiveCounts(dateStr, bookings);
+function getTimeSlots(dateStr: string, now: Date, bookings: Record<SlotKey, number>): SlotInfo[] {
   return ALL_SLOT_LABELS.map((label) => {
     const key: SlotKey = `${dateStr}_${label}`;
-    const count = effective[label] ?? 0;
+    const count = bookings[key] ?? 0;
     return {
       label,
       key,
@@ -646,20 +833,46 @@ function AppointmentsTabContent() {
     return h >= AFTERNOON.start && h <= AFTERNOON.end;
   });
 
+  const { user: authUser } = useAuth();
+
   // ── Validation ──────────────────────────────────────────────────────────────
+  const onlyDigits = (v: string) => (v || '').replace(/\D+/g, '');
+  const isValidVNPhone = (v: string) => /^(03|05|07|08|09)\d{8}$/.test(v);
+  const isValidFullName = (v: string) => {
+    const t = (v || '').trim();
+    if (t.length < 2 || t.length > 50) return false;
+    // allow letters (unicode), marks, spaces, dot, hyphen, apostrophe
+    return /^[\p{L}\p{M}.'\- ]+$/u.test(t);
+  };
+  const isValidPetName = (v: string) => {
+    const t = (v || '').trim();
+    if (t.length < 1 || t.length > 40) return false;
+    return /^[\p{L}\p{M}0-9\- ]+$/u.test(t);
+  };
+
   const validate = (): Record<string, string> => {
     const errs: Record<string, string> = {};
-    if (!form.fullName.trim()) errs.fullName = "Vui lòng nhập họ và tên";
-    if (!form.phone.trim())    errs.phone    = "Vui lòng nhập số điện thoại";
-    if (!form.petName.trim())  errs.petName  = "Vui lòng nhập tên thú cưng";
-    if (!form.petType)         errs.petType  = "Vui lòng chọn loài thú cưng";
-    if (!form.apptDate)        errs.apptDate = "Vui lòng chọn ngày hẹn";
-    if (!selectedSlot)         errs.slot     = "Vui lòng chọn giờ hẹn";
-    if (selectedSvcs.length === 0) errs.svcs = "Vui lòng chọn ít nhất 1 dịch vụ";
+    const fullName = (form.fullName || '').trim();
+    const phoneRaw = onlyDigits(form.phone || '');
+    const petName = (form.petName || '').trim();
+
+    if (!fullName) errs.fullName = 'Vui lòng nhập họ và tên';
+    else if (!isValidFullName(fullName)) errs.fullName = 'Họ và tên không hợp lệ';
+
+    if (!phoneRaw) errs.phone = 'Vui lòng nhập số điện thoại';
+    else if (!isValidVNPhone(phoneRaw)) errs.phone = 'Số điện thoại không hợp lệ (03/05/07/08/09 + 8 số)';
+
+    if (!petName) errs.petName = 'Vui lòng nhập tên thú cưng';
+    else if (!isValidPetName(petName)) errs.petName = 'Tên thú cưng không hợp lệ';
+
+    if (!form.petType)         errs.petType  = 'Vui lòng chọn loài thú cưng';
+    if (!form.apptDate)        errs.apptDate = 'Vui lòng chọn ngày hẹn';
+    if (!selectedSlot)         errs.slot     = 'Vui lòng chọn giờ hẹn';
+    if (selectedSvcs.length === 0) errs.svcs = 'Vui lòng chọn ít nhất 1 dịch vụ';
     if (selectedSlot) {
       const info = slots.find((s: SlotInfo) => s.key === selectedSlot);
-      if (info?.past) errs.slot = "Giờ hẹn đã qua, vui lòng chọn lại";
-      if (info?.full) errs.slot = "Slot này đã đầy (tối đa 3 khách/slot)";
+      if (info?.past) errs.slot = 'Giờ hẹn đã qua, vui lòng chọn lại';
+      if (info?.full) errs.slot = 'Slot này đã đầy (tối đa 3 khách/slot)';
     }
     return errs;
   };
@@ -669,28 +882,116 @@ function AppointmentsTabContent() {
     if (ok) setTimeout(() => setNotif(null), 3500);
   };
 
-  const handleSubmit = () => {
+  // Fetch slots from backend for selected date
+  const fetchSlots = async (date: string) => {
+    try {
+      const res = await fetch(`http://localhost:3013/api/appointments/slots?date=${date}`);
+      const data = await res.json();
+      if (res.ok && data.success && Array.isArray(data.slots)) {
+        const map: Record<SlotKey, number> = {};
+        data.slots.forEach((s: any) => {
+          // backend returns { slot, currentBookings }
+          map[`${date}_${s.slot}`] = s.currentBookings;
+        });
+        setBookings(map);
+      } else {
+        // fallback to empty
+        setBookings({});
+      }
+    } catch (e) {
+      console.error('fetchSlots error', e);
+      setBookings({});
+    }
+  };
+
+  useEffect(() => {
+    // load slots when date changes
+    fetchSlots(form.apptDate);
+  }, [form.apptDate]);
+
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async () => {
+    // final cleanup: ensure phone contains only digits before validate
+    setForm((prev) => ({ ...prev, phone: onlyDigits(prev.phone) }));
     const errs = validate();
     setErrors(errs);
     if (Object.keys(errs).length > 0) {
-      showNotif("Vui lòng điền đầy đủ thông tin còn thiếu", false);
+      showNotif('Vui lòng điền đầy đủ thông tin còn thiếu', false);
       return;
     }
-    // Ghi booking vào slot gốc (spillover được tính khi render)
-    setBookings((prev) => ({
-      ...prev,
-      [selectedSlot!]: (prev[selectedSlot!] ?? 0) + 1,
-    }));
-    const [, m, d] = form.apptDate.split("-");
-    const slotTime = selectedSlot!.split("_")[1];
-    showNotif(
-      `Đặt lịch thành công — ${slotTime} ngày ${d}/${m} cho ${form.petName}`,
-      true
-    );
-    setForm({ fullName: "", phone: "", address: "", petName: "", petType: "", apptDate: todayStr() });
-    setSelectedSlot(null);
-    setSelectedSvcs([]);
-    setErrors({});
+
+    if (!selectedSlot) {
+      showNotif('Vui lòng chọn giờ hẹn', false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const [date, time] = selectedSlot.split('_');
+      const payload = {
+        customerId: 'support_created_' + Date.now(),
+        customerName: form.fullName.trim(),
+        customerPhone: onlyDigits(form.phone),
+        petName: form.petName.trim(),
+        petType: form.petType,
+        serviceType: selectedSvcs.join(', '),
+        appointmentDate: date,
+        appointmentSlot: time,
+        note: form.address || '',
+        supportId: authUser?.id || authUser?._id || null,
+      };
+
+      // try to get auth user id from useAuth hook
+      try {
+        // @ts-ignore
+        if ((window as any).__auth_user_id === undefined) {
+          // set a global for potential reuse
+          // @ts-ignore
+          (window as any).__auth_user_id = (window as any).__auth_user_id || '';
+        }
+      } catch (e) {}
+
+      const res = await fetch('http://localhost:3013/api/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        const msg = data && data.message ? data.message : 'Đặt lịch thất bại';
+        // try to map backend field messages to inline errors
+        const newErrors: Record<string, string> = {};
+        const parts = msg.split(';').map((s: string) => s.trim());
+        parts.forEach((p: string) => {
+          if (p.includes('họ và tên') || p.includes('Họ và tên')) newErrors.fullName = p;
+          else if (p.includes('số điện thoại') || p.includes('Số điện thoại')) newErrors.phone = p;
+          else if (p.includes('tên thú cưng') || p.includes('Tên thú cưng')) newErrors.petName = p;
+          else if (p.includes('loài') || p.includes('Loài')) newErrors.petType = p;
+          else if (p.includes('ngày hẹn') || p.includes('Ngày hẹn')) newErrors.apptDate = p;
+          else if (p.includes('chọn giờ') || p.includes('giờ hẹn')) newErrors.slot = p;
+        });
+        setErrors((prev) => ({ ...prev, ...newErrors }));
+        showNotif(msg, false);
+        return;
+      }
+
+      // success
+      showNotif('Đặt lịch hẹn thành công', true);
+      // optimistic update of bookings
+      // refresh slots from backend to reflect accurate overlap counts
+      await fetchSlots(form.apptDate);
+      setForm({ fullName: '', phone: '', address: '', petName: '', petType: '', apptDate: todayStr() });
+      setSelectedSlot(null);
+      setSelectedSvcs([]);
+      setErrors({});
+    } catch (err: any) {
+      console.error('submit appointment error', err);
+      showNotif(err?.message || 'Lỗi khi tạo lịch', false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ── Styles ──────────────────────────────────────────────────────────────────
@@ -705,18 +1006,16 @@ function AppointmentsTabContent() {
   );
 
   const slotCls = (s: SlotInfo): string => cn(
-    "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition text-center min-w-[54px]",
+    'rounded-lg border-2 px-2 py-2 text-sm font-medium transition-colors duration-150 ease-in-out text-center min-w-[72px] flex flex-col items-center justify-center',
     s.key === selectedSlot
-      ? "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-500/10 font-semibold"
+      ? 'bg-orange-500 border-orange-600 text-white shadow-md transform scale-105'
       : s.full
-      ? "border-gray-100 bg-gray-50 text-gray-300 dark:bg-gray-800 dark:text-gray-600 line-through cursor-not-allowed"
+      ? 'bg-gray-100 border-gray-200 text-gray-400 opacity-60 cursor-not-allowed dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500'
       : s.past
-      ? "border-gray-100 text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50"
-      : s.count >= 2
-      ? "border-orange-300 bg-white hover:border-orange-400 dark:bg-gray-800 cursor-pointer"
-      : s.count === 1
-      ? "border-orange-200 bg-white hover:border-orange-300 dark:bg-gray-800 cursor-pointer"
-      : "border-gray-200 bg-white hover:border-orange-300 dark:bg-gray-800 cursor-pointer"
+      ? 'bg-gray-50 border-gray-100 text-gray-300 opacity-50 cursor-not-allowed dark:bg-transparent dark:text-gray-500'
+      : s.count === MAX_PER_SLOT - 1
+      ? 'bg-amber-50 border-amber-300 text-amber-700 hover:border-amber-400 cursor-pointer dark:bg-amber-900/10 dark:border-amber-700/30 dark:text-amber-200'
+      : 'bg-white border-gray-200 hover:border-orange-300 text-gray-900 cursor-pointer dark:bg-gray-900 dark:border-gray-800 dark:text-gray-200'
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -726,7 +1025,7 @@ function AppointmentsTabContent() {
         <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-orange-500">Support Panel</p>
         <h1 className="text-xl font-black text-gray-950 dark:text-white">Tạo lịch hẹn</h1>
         <p className="text-[11px] text-gray-500 dark:text-gray-400">
-          Giờ làm việc: 08:00–12:00 &amp; 13:00–17:00 · Mỗi lịch 1 tiếng · Tối đa 3 khách / slot
+          Giờ làm việc: 08:00–12:00 &amp; 13:00–17:00 · Tối đa 3 khách / slot
         </p>
       </div>
 
@@ -805,30 +1104,44 @@ function AppointmentsTabContent() {
               ] as { label: string; items: SlotInfo[] }[]).map((g) => (
                 <div key={g.label} className="mb-2">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400">{g.label}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {g.items.map((s: SlotInfo) => (
-                      <button key={s.key}
-                        disabled={s.past || s.full}
-                        onClick={() => { setSelectedSlot(s.key); setErrors((p) => ({ ...p, slot: "" })); }}
-                        className={slotCls(s)}
-                        title={s.full ? "Hết chỗ" : s.past ? "Đã qua" : `Còn ${MAX_PER_SLOT - s.count} chỗ`}>
-                        {s.label}
-                        {!s.past && !s.full && (
-                          <span className="block text-[9px] font-normal text-gray-400">
-                            {MAX_PER_SLOT - s.count} chỗ
-                          </span>
-                        )}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                    {g.items.map((s: SlotInfo) => {
+                      const remaining = Math.max(0, MAX_PER_SLOT - s.count);
+                      const isNearFull = !s.full && remaining === 1;
+                      return (
+                        <button
+                          key={s.key}
+                          disabled={s.past || s.full}
+                          aria-disabled={s.past || s.full}
+                          onClick={() => { if (!s.past && !s.full) { setSelectedSlot(s.key); setErrors((p) => ({ ...p, slot: "" })); } }}
+                          className={slotCls(s)}
+                          title={s.full ? 'Đã đầy' : s.past ? 'Đã qua' : `Còn ${remaining} chỗ`}
+                        >
+                          <div className="flex items-center justify-center w-full">
+                            <div className="text-sm font-semibold leading-none text-gray-800 dark:text-white">{s.label}</div>
+                          </div>
+                          <div className="mt-1 flex items-center gap-2 w-full">
+                            {!s.past && !s.full ? (
+                              <>
+                                <div className="text-[11px] leading-none text-amber-700 dark:text-amber-200 font-medium">
+                                  {remaining} chỗ
+                                </div>
+                                
+                              </>
+                            ) : s.full ? (
+                              <div className="text-[11px] text-gray-400 dark:text-gray-500">Đã đầy</div>
+                            ) : (
+                              <div className="text-[11px] text-gray-400 dark:text-gray-500">Đã qua</div>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
               {errors.slot && <p className="mt-1 text-[11px] text-red-500">{errors.slot}</p>}
-              <div className="mt-1 flex flex-wrap gap-3 text-[10px] text-gray-400">
-                <span><span className="mr-1 inline-block h-2 w-2 rounded-sm border border-orange-200 bg-white" />Còn ít chỗ</span>
-                <span><span className="mr-1 inline-block h-2 w-2 rounded-sm bg-gray-100" />Hết chỗ</span>
-                <span><span className="mr-1 inline-block h-2 w-2 rounded-sm border border-orange-500 bg-orange-50" />Đã chọn</span>
-              </div>
+          
             </div>
           </div>
         </div>
@@ -885,8 +1198,12 @@ function AppointmentsTabContent() {
               </div>
             )}
             <button onClick={handleSubmit}
-              className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-bold text-white transition hover:bg-orange-600 active:scale-[.98]">
-              Đặt lịch hẹn
+              disabled={loading}
+              className={cn(
+                "w-full rounded-xl py-2.5 text-sm font-bold text-white transition active:scale-[.98]",
+                loading ? 'bg-orange-300 cursor-wait' : 'bg-orange-500 hover:bg-orange-600'
+              )}>
+              {loading ? 'Đang gửi...' : 'Đặt lịch hẹn'}
             </button>
           </div>
         </div>
@@ -907,7 +1224,7 @@ function SchedulesTabContent() {
       <div className="mb-8">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-orange-500">Support Panel</p>
         <h1 className="mt-2 text-3xl font-black text-gray-950 dark:text-white">Quản lý lịch hẹn</h1>
-        <p className="mt-2 text-gray-500 dark:text-gray-400">Theo dõi tất cả các lịch hẹn chăm sóc thú cưng</p>
+        <p className="mt-2 text-gray-500 dark:text-gray-400">Dữ liệu đang áp cứng JSON không phải từ Database</p>
       </div>
 
       <div className="rounded-2xl border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 overflow-hidden">
@@ -958,7 +1275,16 @@ export default function SupportDashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!user || (user.role !== "admin" && user.role !== "support")) {
+    if (!user) {
+      window.location.href = "/";
+      return;
+    }
+    // Admins are not allowed on the support dashboard — redirect them to /admin
+    if (user.role === 'admin') {
+      window.location.href = '/admin';
+      return;
+    }
+    if (user.role !== 'support') {
       window.location.href = "/";
     }
   }, [user]);

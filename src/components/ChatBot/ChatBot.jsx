@@ -49,6 +49,7 @@ export default function ChatBot() {
   const [productResults, setProductResults] = useState([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
   const productPickerRef = useRef(null);
+  const [liveText, setLiveText] = useState('');
 
   const safeParse = (str) => {
     try {
@@ -276,8 +277,8 @@ export default function ChatBot() {
 
   const handleSendLive = async () => {
     if (!liveInputRef.current) return;
-    const text = liveInputRef.current.value.trim();
-    if ((!text || text.length === 0) && !currentConversationId) return;
+    const text = (liveInputRef.current.value || '').trim();
+    if (!text) return; // require non-empty trimmed text
     if (!liveSocket || !currentConversationId) return;
     if (isUploading) return; // prevent sending while uploading
 
@@ -288,6 +289,7 @@ export default function ChatBot() {
     const senderAvatar = currentUserAvatar || (authUser && (authUser.avatar || authUser.picture)) || '';
 
     liveInputRef.current.value = '';
+    setLiveText('');
     liveSocket.emit('sendMessage', {
       conversationId: currentConversationId,
       senderId,
@@ -577,10 +579,10 @@ export default function ChatBot() {
           <div className="chat-tabs">
             <button className={`chat-tab ${activeTab==='ai' ? 'active':''}`} onClick={() => { setActiveTab('ai'); setLiveLocked(false); }}>AI Chat</button>
             <button
-              className={`chat-tab ${activeTab==='live' ? 'active':''} ${isGuest ? 'disabled' : ''}`}
+              className={`chat-tab ${activeTab==='live' ? 'active':''} ${(isGuest || (authUser && (authUser.role === 'admin' || authUser.role === 'support'))) ? 'disabled' : ''}`}
               onClick={() => {
-                if (isGuest) {
-                  // show locked UI inside live tab for guests
+                if (isGuest || (authUser && (authUser.role === 'admin' || authUser.role === 'support'))) {
+                  // lock live tab for guests, admins and staff accounts
                   setActiveTab('live');
                   setLiveLocked(true);
                 } else {
@@ -678,11 +680,23 @@ export default function ChatBot() {
                 <div className="live-locked">
                   <div className="live-locked-inner">
                     <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Bạn cần đăng nhập để sử dụng Live Chat</div>
-                    <div style={{ marginBottom: 8, color: '#6b7280' }}>Live Chat chỉ dành cho tài khoản đã đăng nhập.</div>
-                      <div>
-                      <Button size="lg" onClick={() => { window.location.href = '/login'; }}>Đăng nhập ngay</Button>
-                    </div>
+                    {authUser && (authUser.role === 'admin' || authUser.role === 'support') ? (
+                      <>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Tài khoản nhân viên không sử dụng được Live Chat phía khách hàng</div>
+                        <div style={{ marginBottom: 10, color: '#6b7280', textAlign: 'center' }}>Vui lòng sử dụng Support Dashboard để quản lý hội thoại khách hàng.</div>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <Button size="lg" onClick={() => { window.location.href = '/support'; }}>Mở Support Dashboard</Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Bạn cần đăng nhập để sử dụng Live Chat</div>
+                        <div style={{ marginBottom: 8, color: '#6b7280' }}>Live Chat chỉ dành cho tài khoản đã đăng nhập.</div>
+                        <div>
+                          <Button size="lg" onClick={() => { window.location.href = '/login'; }}>Đăng nhập ngay</Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -787,7 +801,13 @@ export default function ChatBot() {
                 </div>
 
                 <div className="live-input">
-                  <input ref={liveInputRef} className="chat-bot-input live-input-field" placeholder="Nhập tin nhắn..." onKeyDown={handleLiveKeyDown} />
+                    <input
+                      ref={liveInputRef}
+                      className="chat-bot-input live-input-field"
+                      placeholder="Nhập tin nhắn..."
+                      onKeyDown={handleLiveKeyDown}
+                      onChange={(e) => setLiveText(e.target.value)}
+                    />
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <button type="button" className="icon-button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Emoji">
                         <Smile size={18} />
@@ -798,7 +818,7 @@ export default function ChatBot() {
                       <button type="button" className="icon-button" onClick={() => setShowProductPicker(!showProductPicker)} title="Gửi sản phẩm">
                         🛍️
                       </button>
-                      <button className="chat-bot-send" onClick={handleSendLive} disabled={isUploading}><Send size={18} /></button>
+                      <button className="chat-bot-send" onClick={handleSendLive} disabled={isUploading || !liveText.trim()}><Send size={18} /></button>
                     </div>
                     <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
                     {showEmojiPicker && (
