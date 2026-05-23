@@ -14,7 +14,7 @@ const VnpayReturnPage = lazy(() => import("@/pages/payment/VnpayReturnPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
-const SupportDashboard = lazy(() => import("@/pages/SupportDashboard"));
+const SupportDashboard = lazy(() => import("@/pages/support/SupportDashboard"));
 
 const AccountLayout = lazy(() => import("@/pages/account/AccountLayout"));
 const AccountProfilePage = lazy(() => import("@/pages/account/ProfilePage"));
@@ -152,6 +152,12 @@ export const router = createBrowserRouter([
   {
     path: "/support",
     element: <RequireSupport><S><SupportDashboard /></S></RequireSupport>,
+    children: [
+      { index: true, element: <Navigate to="/support/messagesmanagement" replace /> },
+      { path: "messagesmanagement", element: <S><SupportDashboard /></S> },
+      { path: "appointmentsmanagement", element: <S><SupportDashboard /></S> },
+      { path: "schedulesmanagement", element: <S><SupportDashboard /></S> },
+    ],
   },
   { path: "*", element: <Navigate to="/" replace /> },
 ]);
