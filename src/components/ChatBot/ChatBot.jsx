@@ -35,6 +35,10 @@ export default function ChatBot() {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [liveMessages, setLiveMessages] = useState([]);
+  const [isLoadingMoreLive, setIsLoadingMoreLive] = useState(false);
+  const [hasMoreLiveMessages, setHasMoreLiveMessages] = useState(true);
+  const liveMessagesContainerRef = useRef(null);
+  const liveAutoScrollEnabled = useRef(true);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserName, setCurrentUserName] = useState(null);
   const [currentUserAvatar, setCurrentUserAvatar] = useState(null);
@@ -272,8 +276,63 @@ export default function ChatBot() {
 
   // Live send
   useEffect(() => {
+    if (!liveAutoScrollEnabled.current) return;
     liveMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [liveMessages]);
+
+  // Fetch initial page of live messages when conversation changes
+  useEffect(() => {
+    if (!currentConversationId) return;
+    (async () => {
+      try {
+        setLiveMessages([]);
+        setHasMoreLiveMessages(true);
+        const r = await fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${currentConversationId}/messages?limit=20`);
+        const res = await r.json();
+        if (res.success) {
+          setLiveMessages(res.data || []);
+          if (!res.data || res.data.length < 20) setHasMoreLiveMessages(false);
+          liveAutoScrollEnabled.current = true;
+        }
+      } catch (e) {
+        console.error('fetch initial live messages error', e);
+      }
+    })();
+  }, [currentConversationId]);
+
+  const loadMoreLiveMessages = async () => {
+    if (!currentConversationId || isLoadingMoreLive || !hasMoreLiveMessages) return;
+    const container = liveMessagesContainerRef.current;
+    if (!container) return;
+    setIsLoadingMoreLive(true);
+    liveAutoScrollEnabled.current = false;
+    const previousScrollHeight = container.scrollHeight;
+    try {
+      const earliest = liveMessages[0];
+      const before = earliest ? encodeURIComponent(earliest.createdAt) : undefined;
+      const url = `${LIVE_SERVICE_URL}/api/live/conversations/${currentConversationId}/messages?limit=20${before ? `&before=${before}` : ''}`;
+      const r = await fetch(url);
+      const res = await r.json();
+      if (res.success) {
+        const newMsgs = res.data || [];
+        if (newMsgs.length === 0) {
+          setHasMoreLiveMessages(false);
+        } else {
+          setLiveMessages((prev) => [...newMsgs, ...prev]);
+          if (newMsgs.length < 20) setHasMoreLiveMessages(false);
+          requestAnimationFrame(() => {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - previousScrollHeight;
+            setTimeout(() => { liveAutoScrollEnabled.current = true; }, 50);
+          });
+        }
+      }
+    } catch (e) {
+      console.error('loadMoreLiveMessages error', e);
+    } finally {
+      setIsLoadingMoreLive(false);
+    }
+  };
 
   const handleSendLive = async () => {
     if (!liveInputRef.current) return;
@@ -706,11 +765,7 @@ export default function ChatBot() {
                       {conversations.map((c) => (
                         <div key={c._id} className={`conversation-item ${currentConversationId===c._id ? 'active' : ''}`} onClick={() => {
                           setCurrentConversationId(c._id);
-                          // fetch messages
-                          fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${c._id}/messages`).then(r=>r.json()).then(res=>{
-                            if (res.success) setLiveMessages(res.data);
-                          }).catch(e=>console.error(e));
-                          // join the room as admin
+                          // join the room as admin; messages will be fetched by the effect watching `currentConversationId`
                           liveSocket?.emit('joinConversation', { conversationId: c._id, userId: authUser.id || authUser._id || 'admin_1', role: authUser.role });
                         }}>
                           <div className="left">
@@ -727,7 +782,12 @@ export default function ChatBot() {
                   )}
 
                   <div className="live-main">
-                    <div className="live-messages">
+                    <div className="live-messages" ref={liveMessagesContainerRef} onScroll={(e) => {
+                      const el = e.target;
+                      if (el.scrollTop === 0 && hasMoreLiveMessages && !isLoadingMoreLive) {
+                        loadMoreLiveMessages();
+                      }
+                    }}>
                     {liveMessages.map((m, i) => {
                       const isSameDay = (a, b) => {
                         if (!a || !b) return false;

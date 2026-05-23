@@ -40,6 +40,11 @@ export default function MessageManagement() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [liveMessages, setLiveMessages] = useState<Message[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
+  const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const autoScrollEnabled = useRef(true);
+  const currentConversationIdRef = useRef<string | null>(null);
   const [inputText, setInputText] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -57,6 +62,10 @@ export default function MessageManagement() {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const currentConversation = conversations.find((c) => c._id === currentConversationId);
+
+  useEffect(() => {
+    currentConversationIdRef.current = currentConversationId;
+  }, [currentConversationId]);
 
   useEffect(() => {
     if (!authUser || (authUser.role !== "admin" && authUser.role !== "support" as any)) {
@@ -78,6 +87,7 @@ export default function MessageManagement() {
     });
 
     ls.on("conversationUpdated", async (list: Conversation[]) => {
+      console.debug('conversationUpdated', list?.length);
       const convs = list || [];
       const enriched = await Promise.all(
         convs.map(async (c) => {
@@ -106,12 +116,15 @@ export default function MessageManagement() {
     });
 
     ls.on("receiveMessage", (data) => {
+      console.debug('receiveMessage', data);
       if (!data) return;
       if (data.messages) {
+        // full sync for a conversation
         setLiveMessages(data.messages);
-      } else if (data.message) {
+        return;
+      }
+      if (data.message) {
         const msg = data.message;
-        setLiveMessages((prev) => [...prev, msg]);
 
         // Update conversation preview and move conversation to top in sidebar in real-time
         setConversations((prev) => {
@@ -141,6 +154,11 @@ export default function MessageManagement() {
             return prev;
           }
         });
+
+        // Only append incoming message to the currently-open conversation view
+        if (msg.conversationId === currentConversationIdRef.current) {
+          setLiveMessages((prev) => [...prev, msg]);
+        }
       }
     });
 
@@ -172,10 +190,37 @@ export default function MessageManagement() {
   }, [authUser]);
 
   useEffect(() => {
+    if (!autoScrollEnabled.current) return;
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [liveMessages]);
+
+  // When no conversation is selected (placeholder shown), poll conversations
+  // so the sidebar updates when new messages/conversations arrive even if
+  // socket events aren't received for some reason.
+  useEffect(() => {
+    let t: any = null;
+    const fetchConversations = async () => {
+      try {
+        const r = await fetch(`${LIVE_SERVICE_URL}/api/live/conversations`);
+        const res = await r.json();
+        if (res.success && Array.isArray(res.data)) {
+          setConversations(res.data);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    if (!currentConversationId) {
+      // fetch immediately and then poll
+      fetchConversations();
+      t = setInterval(fetchConversations, 3000);
+    }
+
+    return () => { if (t) clearInterval(t); };
+  }, [currentConversationId]);
 
   // Product picker search when opened
   useEffect(() => {
@@ -222,17 +267,78 @@ export default function MessageManagement() {
 
   const handleSelectConversation = (conversationId: string) => {
     setCurrentConversationId(conversationId);
-    fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${conversationId}/messages`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success) setLiveMessages(res.data);
-      })
-      .catch((e) => console.error(e));
-    socket?.emit("joinConversation", {
-      conversationId,
-      userId: authUser?.id || authUser?._id || "support_1",
-      role: authUser?.role,
-    });
+    try {
+      // join first so socket rooms are ready to receive real-time updates
+      socket?.emit("joinConversation", {
+        conversationId,
+        userId: authUser?.id || authUser?._id || "support_1",
+        role: authUser?.role,
+      });
+    } catch (err) {
+      console.error('joinConversation emit failed', err);
+    }
+
+    // clear old messages while we fetch new ones
+    setLiveMessages([]);
+    setHasMoreMessages(true);
+    (async () => {
+      try {
+        const r = await fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${conversationId}/messages?limit=20`);
+        const res = await r.json();
+        console.debug('fetched messages for', conversationId, res);
+        if (res.success) {
+          setLiveMessages(res.data || []);
+          // if we received fewer than requested, no more messages
+          if (!res.data || res.data.length < 20) setHasMoreMessages(false);
+          // allow auto-scroll to bottom for initial load
+          autoScrollEnabled.current = true;
+        } else {
+          console.warn('Failed to fetch messages', res);
+        }
+      } catch (e) {
+        console.error('fetch messages error', e);
+      }
+    })();
+  };
+
+  const loadMoreMessages = async () => {
+    if (!currentConversationId || isLoadingMore || !hasMoreMessages) return;
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    setIsLoadingMore(true);
+    autoScrollEnabled.current = false;
+
+    // measure scroll position to restore after prepend
+    const previousScrollHeight = container.scrollHeight;
+    try {
+      const earliest = liveMessages[0];
+      const before = earliest ? encodeURIComponent(earliest.createdAt) : undefined;
+      const url = `${LIVE_SERVICE_URL}/api/live/conversations/${currentConversationId}/messages?limit=20${before ? `&before=${before}` : ''}`;
+      const r = await fetch(url);
+      const res = await r.json();
+      if (res.success) {
+        const newMsgs: Message[] = res.data || [];
+        if (newMsgs.length === 0) {
+          setHasMoreMessages(false);
+        } else {
+          setLiveMessages((prev) => [...newMsgs, ...prev]);
+          if (newMsgs.length < 20) setHasMoreMessages(false);
+          // wait for DOM to update, then adjust scroll to keep view stable
+          requestAnimationFrame(() => {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - previousScrollHeight;
+            // re-enable auto scroll after small delay
+            setTimeout(() => {
+              autoScrollEnabled.current = true;
+            }, 50);
+          });
+        }
+      }
+    } catch (e) {
+      console.error('loadMoreMessages error', e);
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   const emitTyping = () => {
@@ -429,7 +535,12 @@ export default function MessageManagement() {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
+            <div ref={messagesContainerRef} onScroll={(e) => {
+              const el = e.target as HTMLDivElement;
+              if (el.scrollTop === 0 && hasMoreMessages && !isLoadingMore) {
+                loadMoreMessages();
+              }
+            }} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
               {liveMessages.map((msg, idx) => {
                 const isSupport = msg.senderRole === "support" || msg.senderRole === "admin";
                 const date = new Date(msg.createdAt);
