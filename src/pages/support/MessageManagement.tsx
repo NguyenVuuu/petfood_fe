@@ -377,8 +377,12 @@ export default function MessageManagement() {
     <div className="flex h-full min-h-0 flex-1 gap-4">
       {/* Conversations Sidebar */}
       <div className="w-72 border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 flex flex-col overflow-hidden h-full">
-        <div className="shrink-0 border-b border-gray-100 p-4 dark:border-gray-800">
-          <h2 className="font-bold text-gray-950 dark:text-white text-sm">Conversations</h2>
+        <div className="mb-2 flex flex-shrink-0 flex-wrap items-end justify-between gap-2 border-b border-gray-100 p-4 dark:border-gray-800">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-orange-500">Support Panel</p>
+            <h1 className="text-xl font-black text-gray-950 dark:text-white">Quản lý tin nhắn</h1>
+            <p className="text-[11px] text-gray-500 dark:text-gray-400">Giờ làm việc: 08:00–12:00 &amp; 13:00–17:00</p>
+          </div>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto space-y-1 p-2">
           {conversations.length === 0 ? (
