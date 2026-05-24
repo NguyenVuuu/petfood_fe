@@ -8,6 +8,7 @@ import { useAddresses } from "@/hooks/useAddresses";
 import { orderService } from "@/services/order.service";
 import { couponService } from "@/services/coupon.service";
 import { formatPrice, getImageUrl } from "@/lib/utils";
+import { formatDate } from "@/lib/couponUtils";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -416,7 +417,7 @@ export default function CheckoutPage() {
                     <p className="text-xs text-gray-400">
                       {coupon.source === "assigned" ? "Assigned to you" : "Public campaign"}
                     </p>
-                    <p className="text-xs text-gray-400">Expires {new Date(coupon.expiresAt).toLocaleDateString("vi-VN")}</p>
+                    <p className="text-xs text-gray-400">Hạn dùng {formatDate(coupon.expiresAt)}</p>
                   </div>
                   <Button size="sm" onClick={() => applyCoupon(coupon.code)}>
                     Apply

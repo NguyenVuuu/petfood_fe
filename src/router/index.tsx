@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+﻿import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { AdminLayout } from "@/pages/admin/AdminLayout";
@@ -12,6 +12,10 @@ const PaymentUploadProofPage = lazy(() => import("@/pages/PaymentUploadProofPage
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
+const RewardsOverviewPage = lazy(() => import("@/pages/rewards/RewardsOverviewPage"));
+const LuckyWheelPage = lazy(() => import("@/pages/rewards/LuckyWheelPage"));
+const RewardShopPage = lazy(() => import("@/pages/rewards/RewardShopPage"));
+const RewardHistoryPage = lazy(() => import("@/pages/rewards/RewardHistoryPage"));
 
 const AccountLayout = lazy(() => import("@/pages/account/AccountLayout"));
 const AccountProfilePage = lazy(() => import("@/pages/account/ProfilePage"));
@@ -32,6 +36,8 @@ const AdminBankingPaymentsPage = lazy(() => import("@/pages/admin/AdminBankingPa
 const AdminUsersPage = lazy(() => import("@/pages/admin/AdminUsersPage"));
 const AdminCouponsPage = lazy(() => import("@/pages/admin/AdminCouponsPage"));
 const AdminReviewsPage = lazy(() => import("@/pages/admin/AdminReviewsPage"));
+const AdminRewardPoolPage = lazy(() => import("@/pages/admin/AdminRewardPoolPage"));
+const AdminRewardShopPage = lazy(() => import("@/pages/admin/AdminRewardShopPage"));
 const RevenueStatisticsPage = lazy(() => import("@/pages/admin/statistics/RevenueStatisticsPage"));
 const OrderStatisticsPage = lazy(() => import("@/pages/admin/statistics/OrderStatisticsPage"));
 const ProductStatisticsPage = lazy(() => import("@/pages/admin/statistics/ProductStatisticsPage"));
@@ -86,6 +92,10 @@ export const router = createBrowserRouter([
         path: "payment/upload-proof/:orderId",
         element: <RequireAuth><S><PaymentUploadProofPage /></S></RequireAuth>,
       },
+      { path: "rewards", element: <RequireAuth><S><RewardsOverviewPage /></S></RequireAuth> },
+      { path: "rewards/wheel", element: <RequireAuth><S><LuckyWheelPage /></S></RequireAuth> },
+      { path: "rewards/shop", element: <RequireAuth><S><RewardShopPage /></S></RequireAuth> },
+      { path: "rewards/history", element: <RequireAuth><S><RewardHistoryPage /></S></RequireAuth> },
     ],
   },
   { path: "/login", element: <S><LoginPage /></S> },
@@ -122,6 +132,8 @@ export const router = createBrowserRouter([
       { path: "users", element: <S><AdminUsersPage /></S> },
       { path: "coupons", element: <S><AdminCouponsPage /></S> },
       { path: "reviews", element: <S><AdminReviewsPage /></S> },
+      { path: "rewards/pool", element: <S><AdminRewardPoolPage /></S> },
+      { path: "rewards/shop", element: <S><AdminRewardShopPage /></S> },
       { path: "statistics/revenue", element: <S><RevenueStatisticsPage /></S> },
       { path: "statistics/orders", element: <S><OrderStatisticsPage /></S> },
       { path: "statistics/products", element: <S><ProductStatisticsPage /></S> },
@@ -132,3 +144,5 @@ export const router = createBrowserRouter([
   },
   { path: "*", element: <Navigate to="/" replace /> },
 ]);
+
+
