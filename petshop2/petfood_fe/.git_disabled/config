@@ -1,0 +1,17 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/NguyenVuuu/petfood_fe.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "huunhon"]
+	remote = origin
+	vscode-merge-base = origin/master
+	merge = refs/heads/huunhon
+[branch "xuanthi"]
+	remote = origin
+	merge = refs/heads/xuanthi
+	vscode-merge-base = origin/xuanthi
