@@ -28,7 +28,7 @@ import {
 import { HeaderRewardBadge } from "@/components/rewards/HeaderRewardBadge";
 
 export function Navbar() {
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isSupport, logout } = useAuth();
   const { totalItems } = useCart();
   const { data: wishlistData } = useWishlistQuery();
   const wishlistCount = wishlistData?.total ?? 0;
@@ -182,6 +182,15 @@ export function Navbar() {
                         {t("pawmart.products.adminDashboard")}
                       </Link>
                     )}
+                    {isSupport && (
+                      <Link
+                        to="/support"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                      >
+                        <LayoutDashboard size={14} /> Support Dashboard
+                      </Link>
+                    )}
                     <Link
                       to="/my-account/profile"
                       onClick={() => setUserMenuOpen(false)}
@@ -265,6 +274,15 @@ export function Navbar() {
               {/* Mobile category tree */}
               <MobileCategoryMenu onNavigate={() => setMenuOpen(false)} />
 
+              {/* Appointment Button */}
+              <Link
+                to="/appointment"
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-lg bg-amber-500 px-3 py-3 text-sm font-medium text-white hover:bg-amber-600"
+              >
+                🐾 Đặt lịch hẹn
+              </Link>
+
               {/* Auth */}
               <div className="border-t border-gray-100 pt-2 dark:border-gray-800">
                 {isAuthenticated ? (
@@ -275,7 +293,16 @@ export function Navbar() {
                         onClick={() => setMenuOpen(false)}
                         className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                       >
-                        {t("pawmart.products.adminDashboard")}
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    {isSupport && (
+                      <Link
+                        to="/support"
+                        onClick={() => setMenuOpen(false)}
+                        className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
+                      >
+                        Support Dashboard
                       </Link>
                     )}
                     <Link
@@ -312,7 +339,3 @@ export function Navbar() {
     </header>
   );
 }
-
-
-
-

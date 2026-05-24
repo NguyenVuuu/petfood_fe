@@ -35,6 +35,10 @@ export default function ChatBot() {
   const [conversations, setConversations] = useState([]);
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [liveMessages, setLiveMessages] = useState([]);
+  const [isLoadingMoreLive, setIsLoadingMoreLive] = useState(false);
+  const [hasMoreLiveMessages, setHasMoreLiveMessages] = useState(true);
+  const liveMessagesContainerRef = useRef(null);
+  const liveAutoScrollEnabled = useRef(true);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [currentUserName, setCurrentUserName] = useState(null);
   const [currentUserAvatar, setCurrentUserAvatar] = useState(null);
@@ -49,6 +53,7 @@ export default function ChatBot() {
   const [productResults, setProductResults] = useState([]);
   const [isSearchingProducts, setIsSearchingProducts] = useState(false);
   const productPickerRef = useRef(null);
+  const [liveText, setLiveText] = useState('');
 
   const safeParse = (str) => {
     try {
@@ -141,12 +146,12 @@ export default function ChatBot() {
       try {
         const raw = localStorage.getItem('authUser');
         const user = safeParse(raw);
-        if (user && user.role === 'admin') {
-          // set current user info for admin
+        if (user && (user.role === 'admin' || user.role === 'support')) {
+          // set current user info for admin or support
           setCurrentUserId(user.id || user._id || 'admin_1');
-          setCurrentUserName(user.name || user.fullName || user.username || 'Admin');
+          setCurrentUserName(user.name || user.fullName || user.username || 'Support');
           setCurrentUserAvatar(user.avatar || user.picture || '');
-          ls.emit('joinConversation', { conversationId: null, userId: user.id || user._id || 'admin_1', role: 'admin' });
+          ls.emit('joinConversation', { conversationId: null, userId: user.id || user._id || 'admin_1', role: user.role });
         } else if (user) {
           // customer: create/get conversation via REST then join
           const customerId = user.id || user._id;
@@ -271,23 +276,79 @@ export default function ChatBot() {
 
   // Live send
   useEffect(() => {
+    if (!liveAutoScrollEnabled.current) return;
     liveMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [liveMessages]);
 
+  // Fetch initial page of live messages when conversation changes
+  useEffect(() => {
+    if (!currentConversationId) return;
+    (async () => {
+      try {
+        setLiveMessages([]);
+        setHasMoreLiveMessages(true);
+        const r = await fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${currentConversationId}/messages?limit=20`);
+        const res = await r.json();
+        if (res.success) {
+          setLiveMessages(res.data || []);
+          if (!res.data || res.data.length < 20) setHasMoreLiveMessages(false);
+          liveAutoScrollEnabled.current = true;
+        }
+      } catch (e) {
+        console.error('fetch initial live messages error', e);
+      }
+    })();
+  }, [currentConversationId]);
+
+  const loadMoreLiveMessages = async () => {
+    if (!currentConversationId || isLoadingMoreLive || !hasMoreLiveMessages) return;
+    const container = liveMessagesContainerRef.current;
+    if (!container) return;
+    setIsLoadingMoreLive(true);
+    liveAutoScrollEnabled.current = false;
+    const previousScrollHeight = container.scrollHeight;
+    try {
+      const earliest = liveMessages[0];
+      const before = earliest ? encodeURIComponent(earliest.createdAt) : undefined;
+      const url = `${LIVE_SERVICE_URL}/api/live/conversations/${currentConversationId}/messages?limit=20${before ? `&before=${before}` : ''}`;
+      const r = await fetch(url);
+      const res = await r.json();
+      if (res.success) {
+        const newMsgs = res.data || [];
+        if (newMsgs.length === 0) {
+          setHasMoreLiveMessages(false);
+        } else {
+          setLiveMessages((prev) => [...newMsgs, ...prev]);
+          if (newMsgs.length < 20) setHasMoreLiveMessages(false);
+          requestAnimationFrame(() => {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - previousScrollHeight;
+            setTimeout(() => { liveAutoScrollEnabled.current = true; }, 50);
+          });
+        }
+      }
+    } catch (e) {
+      console.error('loadMoreLiveMessages error', e);
+    } finally {
+      setIsLoadingMoreLive(false);
+    }
+  };
+
   const handleSendLive = async () => {
     if (!liveInputRef.current) return;
-    const text = liveInputRef.current.value.trim();
-    if ((!text || text.length === 0) && !currentConversationId) return;
+    const text = (liveInputRef.current.value || '').trim();
+    if (!text) return; // require non-empty trimmed text
     if (!liveSocket || !currentConversationId) return;
     if (isUploading) return; // prevent sending while uploading
 
     // prepare sender info from stored current user
     const senderId = currentUserId || (authUser && (authUser.id || authUser._id)) || `guest_${Date.now()}`;
-    const senderRole = authUser && authUser.role === 'admin' ? 'admin' : 'customer';
+    const senderRole = authUser && (authUser.role === 'admin' || authUser.role === 'support') ? authUser.role : 'customer';
     const senderName = currentUserName || (authUser && (authUser.name || authUser.fullName || authUser.username)) || 'Guest';
     const senderAvatar = currentUserAvatar || (authUser && (authUser.avatar || authUser.picture)) || '';
 
     liveInputRef.current.value = '';
+    setLiveText('');
     liveSocket.emit('sendMessage', {
       conversationId: currentConversationId,
       senderId,
@@ -372,7 +433,7 @@ export default function ChatBot() {
 
       // emit image message
       const senderId = currentUserId || (authUser && (authUser.id || authUser._id)) || `guest_${Date.now()}`;
-      const senderRole = authUser && authUser.role === 'admin' ? 'admin' : 'customer';
+      const senderRole = authUser && (authUser.role === 'admin' || authUser.role === 'support') ? authUser.role : 'customer';
       const senderName = currentUserName || (authUser && (authUser.name || authUser.fullName || authUser.username)) || 'Guest';
       const senderAvatar = currentUserAvatar || (authUser && (authUser.avatar || authUser.picture)) || '';
 
@@ -434,7 +495,7 @@ export default function ChatBot() {
   const handleSelectProduct = (product) => {
     if (!liveSocket || !currentConversationId) return;
     const senderId = currentUserId || (authUser && (authUser.id || authUser._id)) || `guest_${Date.now()}`;
-    const senderRole = authUser && authUser.role === 'admin' ? 'admin' : 'customer';
+    const senderRole = authUser && (authUser.role === 'admin' || authUser.role === 'support') ? authUser.role : 'customer';
     const senderName = currentUserName || (authUser && (authUser.name || authUser.fullName || authUser.username)) || 'Guest';
     const senderAvatar = currentUserAvatar || (authUser && (authUser.avatar || authUser.picture)) || '';
 
@@ -528,7 +589,7 @@ export default function ChatBot() {
     };
   }, []);
 
-  const hiddenExact = ['/login', '/logout', '/register', '/signup'];
+  const hiddenExact = ['/login', '/support', '/register', '/admin'];
   const hiddenPrefixes = ['/auth'];
   const shouldHideUI = hiddenExact.some(p => currentPath === p || currentPath.startsWith(p + '/')) || hiddenPrefixes.some(p => currentPath.startsWith(p));
   if (shouldHideUI) return null;
@@ -577,10 +638,10 @@ export default function ChatBot() {
           <div className="chat-tabs">
             <button className={`chat-tab ${activeTab==='ai' ? 'active':''}`} onClick={() => { setActiveTab('ai'); setLiveLocked(false); }}>AI Chat</button>
             <button
-              className={`chat-tab ${activeTab==='live' ? 'active':''} ${isGuest ? 'disabled' : ''}`}
+              className={`chat-tab ${activeTab==='live' ? 'active':''} ${(isGuest || (authUser && (authUser.role === 'admin' || authUser.role === 'support'))) ? 'disabled' : ''}`}
               onClick={() => {
-                if (isGuest) {
-                  // show locked UI inside live tab for guests
+                if (isGuest || (authUser && (authUser.role === 'admin' || authUser.role === 'support'))) {
+                  // lock live tab for guests, admins and staff accounts
                   setActiveTab('live');
                   setLiveLocked(true);
                 } else {
@@ -678,26 +739,34 @@ export default function ChatBot() {
                 <div className="live-locked">
                   <div className="live-locked-inner">
                     <div style={{ fontSize: 36, marginBottom: 8 }}>🔒</div>
-                    <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Bạn cần đăng nhập để sử dụng Live Chat</div>
-                    <div style={{ marginBottom: 8, color: '#6b7280' }}>Live Chat chỉ dành cho tài khoản đã đăng nhập.</div>
-                      <div>
-                      <Button size="lg" onClick={() => { window.location.href = '/login'; }}>Đăng nhập ngay</Button>
-                    </div>
+                    {authUser && (authUser.role === 'admin' || authUser.role === 'support') ? (
+                      <>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Tài khoản nhân viên không sử dụng được Live Chat phía khách hàng</div>
+                        <div style={{ marginBottom: 10, color: '#6b7280', textAlign: 'center' }}>Vui lòng sử dụng Support Dashboard để quản lý hội thoại khách hàng.</div>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                          <Button size="lg" onClick={() => { window.location.href = '/support'; }}>Mở Support Dashboard</Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8 }}>Bạn cần đăng nhập để sử dụng Live Chat</div>
+                        <div style={{ marginBottom: 8, color: '#6b7280' }}>Live Chat chỉ dành cho tài khoản đã đăng nhập.</div>
+                        <div>
+                          <Button size="lg" onClick={() => { window.location.href = '/login'; }}>Đăng nhập ngay</Button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               ) : (
                 <div className="live-inner" style={{ display: 'contents' }}>
-                  {authUser && authUser.role === 'admin' && (
+                  {authUser && (authUser.role === 'admin' || authUser.role === 'support') && (
                     <div className="live-sidebar">
                       {conversations.map((c) => (
                         <div key={c._id} className={`conversation-item ${currentConversationId===c._id ? 'active' : ''}`} onClick={() => {
                           setCurrentConversationId(c._id);
-                          // fetch messages
-                          fetch(`${LIVE_SERVICE_URL}/api/live/conversations/${c._id}/messages`).then(r=>r.json()).then(res=>{
-                            if (res.success) setLiveMessages(res.data);
-                          }).catch(e=>console.error(e));
-                          // join the room as admin
-                          liveSocket?.emit('joinConversation', { conversationId: c._id, userId: authUser.id || authUser._id || 'admin_1', role: 'admin' });
+                          // join the room as admin; messages will be fetched by the effect watching `currentConversationId`
+                          liveSocket?.emit('joinConversation', { conversationId: c._id, userId: authUser.id || authUser._id || 'admin_1', role: authUser.role });
                         }}>
                           <div className="left">
                             <img src={c.customerAvatar || '/default-avatar.png'} alt={c.customerName || c.customerId} />
@@ -713,7 +782,12 @@ export default function ChatBot() {
                   )}
 
                   <div className="live-main">
-                    <div className="live-messages">
+                    <div className="live-messages" ref={liveMessagesContainerRef} onScroll={(e) => {
+                      const el = e.target;
+                      if (el.scrollTop === 0 && hasMoreLiveMessages && !isLoadingMoreLive) {
+                        loadMoreLiveMessages();
+                      }
+                    }}>
                     {liveMessages.map((m, i) => {
                       const isSameDay = (a, b) => {
                         if (!a || !b) return false;
@@ -744,7 +818,7 @@ export default function ChatBot() {
                       const showDate = !prev || !isSameDay(m.createdAt, prev?.createdAt);
                       const isMe = m.senderId === currentUserId;
                       const alignClass = isMe ? 'chat-message-user' : 'chat-message-bot';
-                      const name = m.senderName || (m.senderRole === 'admin' ? 'Admin' : (m.senderId || 'User'));
+                      const name = m.senderName || (m.senderRole === 'admin' || m.senderRole === 'support' ? 'Support' : (m.senderId || 'User'));
                       const avatar = m.senderAvatar || '';
 
                       return (
@@ -787,7 +861,13 @@ export default function ChatBot() {
                 </div>
 
                 <div className="live-input">
-                  <input ref={liveInputRef} className="chat-bot-input live-input-field" placeholder="Nhập tin nhắn..." onKeyDown={handleLiveKeyDown} />
+                    <input
+                      ref={liveInputRef}
+                      className="chat-bot-input live-input-field"
+                      placeholder="Nhập tin nhắn..."
+                      onKeyDown={handleLiveKeyDown}
+                      onChange={(e) => setLiveText(e.target.value)}
+                    />
                     <div style={{display:'flex',alignItems:'center',gap:8}}>
                       <button type="button" className="icon-button" onClick={() => setShowEmojiPicker(!showEmojiPicker)} title="Emoji">
                         <Smile size={18} />
@@ -798,7 +878,7 @@ export default function ChatBot() {
                       <button type="button" className="icon-button" onClick={() => setShowProductPicker(!showProductPicker)} title="Gửi sản phẩm">
                         🛍️
                       </button>
-                      <button className="chat-bot-send" onClick={handleSendLive} disabled={isUploading}><Send size={18} /></button>
+                      <button className="chat-bot-send" onClick={handleSendLive} disabled={isUploading || !liveText.trim()}><Send size={18} /></button>
                     </div>
                     <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
                     {showEmojiPicker && (
