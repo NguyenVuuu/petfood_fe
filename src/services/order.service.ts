@@ -17,6 +17,57 @@ export interface OrderListResponse {
   };
 }
 
+export interface OrderInvoice {
+  invoiceNo: string;
+  issuedAt: string;
+  orderId: string;
+  orderCode: string;
+  customer: {
+    userId: string;
+    fullName?: string;
+    phone?: string;
+  };
+  shippingAddress: ShippingAddress;
+  items: Array<{
+    productId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    imageUrl: string;
+  }>;
+  totals: {
+    subtotal: number;
+    shippingFee: number;
+    discount: number;
+    vatRate: number;
+    taxableAmount: number;
+    vatAmount: number;
+    totalAmount: number;
+    vatMode: "included";
+  };
+  payment: {
+    method: Order["paymentMethod"];
+    status?: Order["paymentStatus"];
+  };
+  status: {
+    orderStatus?: Order["orderStatus"];
+    deliveryEstimatedTime?: string | null;
+    deliveredAt?: string | null;
+    deliveryPopupSeen?: boolean;
+  };
+}
+
+export interface ReorderResponse {
+  items: Array<{
+    productId: string;
+    name: string;
+    quantity: number;
+    imageUrl: string;
+  }>;
+  itemCount: number;
+}
+
 export type AdminOrderStatus =
   | "WAITING_FOR_PROCESSING"
   | "PROCESSING"
@@ -40,6 +91,16 @@ export const orderService = {
   async getOrder(id: string): Promise<Order> {
     const { data } = await apiClient.get<{ order: Order }>(`/orders/${id}`);
     return data.order;
+  },
+
+  async getInvoice(id: string): Promise<OrderInvoice> {
+    const { data } = await apiClient.get<{ invoice: OrderInvoice }>(`/orders/${id}/invoice`);
+    return data.invoice;
+  },
+
+  async reorder(id: string): Promise<ReorderResponse> {
+    const { data } = await apiClient.post<ReorderResponse>(`/orders/${id}/reorder`);
+    return data;
   },
 
   async markDeliveryPopupSeen(id: string): Promise<Order> {

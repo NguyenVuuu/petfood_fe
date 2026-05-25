@@ -249,6 +249,9 @@ export interface Order {
   items: OrderItem[];
   shippingAddress: ShippingAddress;
   totalAmount: number;
+  vatRate?: number;
+  vatAmount?: number;
+  taxableAmount?: number;
   status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
   orderStatus?:
     | "PENDING_PAYMENT"
