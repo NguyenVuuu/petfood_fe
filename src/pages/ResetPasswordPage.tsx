@@ -115,9 +115,9 @@ export default function ResetPasswordPage() {
 
     try {
       setIsResending(true);
+      setCooldown(RESEND_COOLDOWN_SECONDS);
       const result = await authService.forgotPassword(parsed.data);
       toast.success(result.message);
-      setCooldown(RESEND_COOLDOWN_SECONDS);
       setExpiresIn(OTP_TTL_SECONDS);
     } catch (error) {
       toast.error(getErrorMessage(error));
