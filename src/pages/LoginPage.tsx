@@ -103,12 +103,12 @@ export default function LoginPage() {
                 />
                 {t("pawmart.auth.rememberMe")}
               </label>
-              <button
-                type="button"
+              <Link
+                to="/forgot-password"
                 className="text-sm text-amber-500 hover:underline"
               >
                 {t("pawmart.auth.forgotPassword")}
-              </button>
+              </Link>
             </div>
 
             <Button

@@ -13,6 +13,8 @@ const PaymentUploadProofPage = lazy(
 );
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
 const SupportDashboard = lazy(() => import("@/pages/support/SupportDashboard"));
 const RewardsOverviewPage = lazy(
@@ -236,6 +238,22 @@ export const router = createBrowserRouter([
     element: (
       <S>
         <RegisterPage />
+      </S>
+    ),
+  },
+  {
+    path: "/forgot-password",
+    element: (
+      <S>
+        <ForgotPasswordPage />
+      </S>
+    ),
+  },
+  {
+    path: "/reset-password",
+    element: (
+      <S>
+        <ResetPasswordPage />
       </S>
     ),
   },
