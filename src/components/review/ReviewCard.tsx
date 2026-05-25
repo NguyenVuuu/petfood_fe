@@ -44,7 +44,7 @@ export function ReviewCard({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h4 className="font-semibold text-gray-900 dark:text-white">{review.fullName}</h4>
-              {review.verifiedPurchase && (
+              {(review.isVerifiedPurchase ?? review.verifiedPurchase) && (
                 <Badge variant="success">
                   <ShieldCheck size={12} />
                   Verified purchase

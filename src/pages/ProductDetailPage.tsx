@@ -99,7 +99,7 @@ export default function ProductDetailPage() {
             />
           </div>
           <button
-            onClick={() => toggle(product)}
+            onClick={() => toggle(product._id, product.name)}
             className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow-md backdrop-blur-sm transition-transform hover:scale-110 dark:bg-gray-800/90"
           >
             <Heart
@@ -226,7 +226,7 @@ export default function ProductDetailPage() {
         </motion.div>
       </div>
 
-      <ReviewSection productId={product._id} canReview={product.isActive} />
+      <ReviewSection productId={product._id} />
     </div>
   );
 }

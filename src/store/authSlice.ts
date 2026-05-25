@@ -1,6 +1,5 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "@/types";
-import { parseJsonSafe } from "@/lib/utils";
 
 interface AuthState {
   user: User | null;
@@ -12,7 +11,7 @@ const storedToken = localStorage.getItem("accessToken");
 const storedUser = localStorage.getItem("authUser");
 
 const initialState: AuthState = {
-  user: parseJsonSafe<User | null>(storedUser, null),
+  user: storedUser ? (JSON.parse(storedUser) as User) : null,
   accessToken: storedToken,
   isAuthenticated: !!storedToken,
 };

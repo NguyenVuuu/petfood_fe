@@ -5,6 +5,11 @@ interface StatusBadgeProps {
   value: string;
 }
 
+const normalizeLabel = (value: string) =>
+  value
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 export function StatusBadge({ type, value }: StatusBadgeProps) {
   const normalized = value.toLowerCase();
 
@@ -17,7 +22,7 @@ export function StatusBadge({ type, value }: StatusBadgeProps) {
   }
 
   if (type === "role") {
-    return <Badge variant={normalized === "admin" ? "info" : "outline"}>{value}</Badge>;
+    return <Badge variant={normalized === "admin" ? "info" : "outline"}>{normalizeLabel(value)}</Badge>;
   }
 
   if (type === "payment") {
@@ -26,8 +31,10 @@ export function StatusBadge({ type, value }: StatusBadgeProps) {
         ? "success"
         : normalized === "failed"
           ? "danger"
-          : "warning";
-    return <Badge variant={variant}>{value}</Badge>;
+          : normalized === "waiting_verify"
+            ? "info"
+            : "warning";
+    return <Badge variant={variant}>{normalizeLabel(value)}</Badge>;
   }
 
   const variant =
@@ -35,9 +42,9 @@ export function StatusBadge({ type, value }: StatusBadgeProps) {
       ? "success"
       : normalized === "cancelled"
         ? "danger"
-        : normalized === "shipping" || normalized === "shipped"
+        : normalized === "shipping"
           ? "info"
           : "warning";
 
-  return <Badge variant={variant}>{value}</Badge>;
+  return <Badge variant={variant}>{normalizeLabel(value)}</Badge>;
 }

@@ -1,10 +1,9 @@
-// ─── Auth ────────────────────────────────────────────────────────────────────
 export interface User {
   id?: string;
   _id?: string;
   fullName: string;
   email: string;
-  role: "user" | "admin";
+  role: "user" | "admin" | "support";
   isActive?: boolean;
   inactiveReason?: string | null;
   inactiveAt?: string | null;
@@ -51,10 +50,9 @@ export interface RegisterPayload {
   password: string;
 }
 
-// ─── Category ────────────────────────────────────────────────────────────────
 export interface Category {
-  _id: string; // /categories/tree returns Mongo _id and also mirrors it to id
-  id: string; // backend toDto() trả về "id" không phải "_id"
+  _id: string;
+  id: string;
   name: string;
   description?: string;
   slug: string;
@@ -70,7 +68,7 @@ export interface Category {
 
 export interface CategoryNode extends Category {
   children: CategoryNode[];
-  menuGroups?: Array<{ group: string; items: CategoryNode[] }>; // chỉ có ở /menu
+  menuGroups?: Array<{ group: string; items: CategoryNode[] }>;
 }
 
 export interface CategoryListMeta {
@@ -94,7 +92,6 @@ export interface CategoryFormPayload {
   isActive?: boolean;
 }
 
-// ─── Product ─────────────────────────────────────────────────────────────────
 export interface Product {
   _id: string;
   name: string;
@@ -116,13 +113,18 @@ export interface Product {
 export interface Review {
   _id: string;
   productId: string;
+  orderId: string;
   userId: string;
   fullName: string;
   avatarUrl?: string;
   rating: number;
   comment: string;
+  images?: Array<{ url: string; publicId?: string }>;
   status: "visible" | "hidden";
-  verifiedPurchase: boolean;
+  isVerifiedPurchase?: boolean;
+  verifiedPurchase?: boolean;
+  hiddenReason?: string;
+  hiddenAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -130,36 +132,48 @@ export interface Review {
 export interface ReviewSummary {
   averageRating: number;
   totalReviews: number;
+  ratingBreakdown: Record<1 | 2 | 3 | 4 | 5, number>;
 }
 
 export interface ReviewPayload {
+  productId: string;
+  orderId: string;
   rating: number;
   comment: string;
+  images?: Array<{ url: string; publicId?: string }>;
 }
 
 export interface ReviewListResponse {
+  success?: boolean;
   reviews: Review[];
   summary: ReviewSummary;
-  myReview: Review | null;
+  meta?: ProductListMeta;
 }
 
-/**
- * Query params accepted by GET /api/products (matches backend listProductSchema).
- * NOTE: backend currently supports keyword + categoryId + paging + sorting.
- * Price range filters are still UI-only until product-service exposes them.
- */
+export interface AdminReviewListParams {
+  page?: number;
+  limit?: number;
+  status?: "visible" | "hidden" | "all";
+  search?: string;
+  productId?: string;
+  userId?: string;
+}
+
+export interface AdminReviewListResponse {
+  success?: boolean;
+  reviews: Review[];
+  meta: ProductListMeta;
+}
+
 export interface ProductListParams {
   page?: number;
   limit?: number;
-  /** Maps to backend query param: ?keyword=  */
   keyword?: string;
-  /** Maps to backend query param: ?categoryId= */
   categoryId?: string;
   sortBy?: "createdAt" | "updatedAt" | "name" | "price";
   sortOrder?: "asc" | "desc";
 }
 
-/** Actual response shape returned by product-service listProducts */
 export interface ProductListMeta {
   page: number;
   limit: number;
@@ -172,7 +186,6 @@ export interface ProductListResponse {
   meta: ProductListMeta;
 }
 
-// ─── Cart ────────────────────────────────────────────────────────────────────
 export interface CartItem {
   productId: string;
   name: string;
@@ -182,7 +195,6 @@ export interface CartItem {
   stock: number;
 }
 
-// ─── Cart API (cart-service) ──────────────────────────────────────────────────
 export interface CartItemFlags {
   priceChanged: boolean;
   outOfStock: boolean;
@@ -226,7 +238,31 @@ export interface CartValidateResponse {
   cart: CartApiResponse;
 }
 
-// ─── Order ───────────────────────────────────────────────────────────────────
+export interface Address {
+  id: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detailAddress: string;
+  label: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AddressPayload {
+  fullName: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detailAddress: string;
+  label: string;
+}
+
 export interface OrderItem {
   productId: string;
   name: string;
@@ -238,42 +274,72 @@ export interface OrderItem {
 export interface ShippingAddress {
   fullName: string;
   phone: string;
-  address: string;
-  city: string;
-  note?: string;
+  province: string;
+  district: string;
+  ward: string;
+  detailAddress: string;
 }
+
+export type PaymentMethod = "cash" | "banking";
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "shipping"
+  | "delivered"
+  | "completed"
+  | "cancelled";
+export type PaymentStatus =
+  | "unpaid"
+  | "pending"
+  | "waiting_verify"
+  | "paid"
+  | "failed"
+  | "expired";
 
 export interface Order {
   _id: string;
   userId: string;
   items: OrderItem[];
   shippingAddress: ShippingAddress;
+  subtotal?: number;
+  shippingFee?: number;
+  shippingDiscount?: number;
+  couponCode?: string;
+  couponDiscount?: number;
   totalAmount: number;
-  vatRate?: number;
-  vatAmount?: number;
-  taxableAmount?: number;
-  status: "pending" | "processing" | "shipped" | "delivered" | "cancelled";
-  orderStatus?:
-    | "PENDING_PAYMENT"
-    | "PAID"
-    | "WAITING_FOR_PROCESSING"
-    | "PROCESSING"
-    | "WAITING_FOR_DELIVERY"
-    | "DELIVERING"
-    | "DELIVERED"
-    | "CANCELLED"
-    | "FAILED"
-    | "REFUNDED";
-  paymentStatus?: "PENDING" | "PAID" | "FAILED" | "REFUNDED" | "pending" | "paid" | "failed" | "refunded";
-  paymentMethod: "cod" | "bank_transfer" | "momo";
-  paymentId?: string | null;
-  deliveryEstimatedTime?: string | null;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  orderStatus: OrderStatus;
+  estimatedDeliveryAt?: string | null;
+  confirmedAt?: string | null;
+  shippingStartedAt?: string | null;
   deliveredAt?: string | null;
-  deliveryPopupSeen?: boolean;
+  completedAt?: string | null;
+  cancelledAt?: string | null;
+  expiresAt?: string | null;
+  cancelledReason?: string;
+  cartRestoredAt?: string | null;
+  notes?: string;
   createdAt: string;
+  updatedAt: string;
 }
 
-// ─── Wishlist ─────────────────────────────────────────────────────────────────
+export interface Payment {
+  _id: string;
+  orderId: string;
+  userId: string;
+  paymentMethod: PaymentMethod;
+  amount: number;
+  status: PaymentStatus;
+  proofImageUrl?: string;
+  proofImagePublicId?: string;
+  verifiedBy?: string | null;
+  verifiedAt?: string | null;
+  rejectedReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WishlistItem {
   productId: string;
   name: string;
@@ -281,11 +347,17 @@ export interface WishlistItem {
   imageUrl: string;
 }
 
-// ─── API ─────────────────────────────────────────────────────────────────────
 export interface ApiError {
   message: string;
   statusCode?: number;
   errors?: Record<string, string>;
+}
+
+export interface UserSearchResult {
+  _id: string;
+  fullName: string;
+  email: string;
+  avatarUrl?: string;
 }
 
 export type SortOption = "newest" | "price-asc" | "price-desc" | "name-asc";

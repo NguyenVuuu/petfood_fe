@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+﻿import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ShoppingCart,
@@ -25,9 +25,10 @@ import {
   MegaMenu,
   MobileCategoryMenu,
 } from "@/components/CategoryMenu/MegaMenu";
+import { HeaderRewardBadge } from "@/components/rewards/HeaderRewardBadge";
 
 export function Navbar() {
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, isAuthenticated, isAdmin, isSupport, logout } = useAuth();
   const { totalItems } = useCart();
   const { data: wishlistData } = useWishlistQuery();
   const wishlistCount = wishlistData?.total ?? 0;
@@ -74,7 +75,7 @@ export function Navbar() {
           : "bg-white dark:bg-gray-950",
       )}
     >
-      {/* ── Top bar ── */}
+      {/* Top bar */}
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-6">
         {/* Logo */}
         <Link to="/" className="flex shrink-0 items-center gap-2">
@@ -115,6 +116,8 @@ export function Navbar() {
 
           <LanguageSwitcher />
 
+          {isAuthenticated && <HeaderRewardBadge />}
+
           <Link
             to="/wishlist"
             className="relative rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
@@ -142,7 +145,6 @@ export function Navbar() {
           {isAuthenticated ? (
             <div className="relative hidden md:block">
               <button
-                type="button"
                 onClick={() => setUserMenuOpen((v) => !v)}
                 className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
               >
@@ -168,7 +170,7 @@ export function Navbar() {
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
-                    className="absolute right-0 top-full z-50 mt-2 w-48 rounded-xl border border-gray-100 bg-white py-2 shadow-xl dark:border-gray-800 dark:bg-gray-900"
+                    className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-gray-100 bg-white py-2 shadow-xl dark:border-gray-800 dark:bg-gray-900"
                   >
                     {isAdmin && (
                       <Link
@@ -180,8 +182,17 @@ export function Navbar() {
                         {t("pawmart.products.adminDashboard")}
                       </Link>
                     )}
+                    {isSupport && (
+                      <Link
+                        to="/support"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
+                      >
+                        <LayoutDashboard size={14} /> Support Dashboard
+                      </Link>
+                    )}
                     <Link
-                      to="/account/profile"
+                      to="/my-account/profile"
                       onClick={() => setUserMenuOpen(false)}
                       className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
@@ -219,21 +230,21 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* ── Mega menu bar (desktop) ── */}
+      {/* Mega menu bar (desktop) */}
       <div className="hidden border-t border-gray-100 dark:border-gray-800 md:block">
         <div className="mx-auto max-w-7xl px-4 py-1 md:px-6">
           <MegaMenu />
         </div>
       </div>
 
-      {/* ── Mobile menu ── */}
+      {/* Mobile menu */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="relative z-50 overflow-hidden border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-950 md:hidden"
+            className="overflow-hidden border-t border-gray-100 bg-white dark:border-gray-800 dark:bg-gray-950 md:hidden"
           >
             <div className="space-y-1 p-4">
               {/* Mobile search */}
@@ -263,6 +274,15 @@ export function Navbar() {
               {/* Mobile category tree */}
               <MobileCategoryMenu onNavigate={() => setMenuOpen(false)} />
 
+              {/* Appointment Button */}
+              <Link
+                to="/appointment"
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-lg bg-amber-500 px-3 py-3 text-sm font-medium text-white hover:bg-amber-600"
+              >
+                🐾 Đặt lịch hẹn
+              </Link>
+
               {/* Auth */}
               <div className="border-t border-gray-100 pt-2 dark:border-gray-800">
                 {isAuthenticated ? (
@@ -273,11 +293,20 @@ export function Navbar() {
                         onClick={() => setMenuOpen(false)}
                         className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                       >
-                        {t("pawmart.products.adminDashboard")}
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    {isSupport && (
+                      <Link
+                        to="/support"
+                        onClick={() => setMenuOpen(false)}
+                        className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
+                      >
+                        Support Dashboard
                       </Link>
                     )}
                     <Link
-                      to="/account/profile"
+                      to="/my-account/profile"
                       onClick={() => setMenuOpen(false)}
                       className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                     >

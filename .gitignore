@@ -63,8 +63,3 @@ coverage/
 .eslintcache
 *.tgz
 .npm
-
-# ========================
-# Markdown files
-# ========================
-*.md
