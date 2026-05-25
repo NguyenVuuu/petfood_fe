@@ -15,6 +15,53 @@ export interface CreateOrderResponse {
   nextAction: "UPLOAD_BANKING_PROOF" | "ORDER_CREATED";
 }
 
+export interface OrderInvoice {
+  invoiceNo: string;
+  issuedAt: string;
+  orderId: string;
+  orderCode: string;
+  customer: {
+    userId: string;
+    fullName?: string;
+    phone?: string;
+  };
+  shippingAddress: Order["shippingAddress"];
+  items: Array<{
+    productId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    lineTotal: number;
+    imageUrl: string;
+  }>;
+  totals: {
+    subtotal: number;
+    shippingFee: number;
+    shippingDiscount: number;
+    couponDiscount: number;
+    couponShippingDiscount: number;
+    vatRate: number;
+    taxableAmount: number;
+    vatAmount: number;
+    totalAmount: number;
+    vatMode: "included";
+  };
+  payment: {
+    method: Order["paymentMethod"];
+    status: Order["paymentStatus"];
+    paidAt?: string | null;
+  };
+  status: {
+    orderStatus: Order["orderStatus"];
+    confirmedAt?: string | null;
+    shippingStartedAt?: string | null;
+    estimatedDeliveryAt?: string | null;
+    deliveredAt?: string | null;
+    completedAt?: string | null;
+    cancelledAt?: string | null;
+  };
+}
+
 export const orderService = {
   async createOrder(payload: CreateOrderPayload): Promise<CreateOrderResponse> {
     const { data } = await apiClient.post<
@@ -40,6 +87,19 @@ export const orderService = {
   async getOrder(id: string): Promise<Order> {
     const { data } = await apiClient.get<{ success: boolean; order: Order }>(`/orders/${id}`);
     return data.order;
+  },
+
+  async getInvoice(id: string): Promise<OrderInvoice> {
+    const { data } = await apiClient.get<{ success: boolean; invoice: OrderInvoice }>(`/orders/${id}/invoice`);
+    return data.invoice;
+  },
+
+  async reorder(id: string): Promise<{ itemCount: number; cart: unknown }> {
+    const { data } = await apiClient.post<{ success: boolean; itemCount: number; cart: unknown }>(`/orders/${id}/reorder`);
+    return {
+      itemCount: data.itemCount,
+      cart: data.cart,
+    };
   },
 
   async listAdminOrders(params?: { page?: number; limit?: number }): Promise<{ orders: Order[]; meta: { page: number; limit: number; total: number; totalPages: number } }> {

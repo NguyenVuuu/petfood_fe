@@ -306,6 +306,10 @@ export interface Order {
   shippingDiscount?: number;
   couponCode?: string;
   couponDiscount?: number;
+  couponShippingDiscount?: number;
+  vatRate?: number;
+  vatAmount?: number;
+  taxableAmount?: number;
   totalAmount: number;
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
