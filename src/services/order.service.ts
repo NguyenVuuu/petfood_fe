@@ -10,7 +10,7 @@ export interface CreateOrderPayload {
     imageUrl: string;
     quantity: number;
   }>;
-  paymentMethod: "cash" | "banking";
+  paymentMethod: "cash" | "banking" | "vnpay";
   addressId: string;
   couponCode?: string;
   notes?: string;
@@ -19,7 +19,8 @@ export interface CreateOrderPayload {
 export interface CreateOrderResponse {
   order: Order;
   payment?: Payment;
-  nextAction: "UPLOAD_BANKING_PROOF" | "ORDER_CREATED";
+  paymentUrl?: string;
+  nextAction: "UPLOAD_BANKING_PROOF" | "ORDER_CREATED" | "REDIRECT_VNPAY";
 }
 
 export const orderService = {
@@ -30,6 +31,7 @@ export const orderService = {
     return {
       order: data.order,
       payment: data.payment,
+      paymentUrl: data.paymentUrl,
       nextAction: data.nextAction,
     };
   },

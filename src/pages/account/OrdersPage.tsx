@@ -242,7 +242,12 @@ export default function OrdersPage({
 
               <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-3 dark:border-gray-800">
                 <div className="text-sm text-gray-600 dark:text-gray-300">
-                  <span className="font-medium">Payment:</span> {order.paymentMethod === "cash" ? "Cash on Delivery" : "Banking Transfer"}
+                  <span className="font-medium">Payment:</span>{" "}
+                  {order.paymentMethod === "cash"
+                    ? "Cash on Delivery"
+                    : order.paymentMethod === "vnpay"
+                      ? "VNPay"
+                      : "Banking Transfer"}
                   {order.orderStatus === "shipping" && order.estimatedDeliveryAt && (
                     <span className="ml-3 inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                       <Truck size={12} /> ETA {getCountdown(order.estimatedDeliveryAt, now)}

@@ -1,7 +1,7 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { reviewService } from "@/services/review.service";
-import { AdminReviewListParams, ReviewPayload } from "@/types";
+import { AdminReviewListParams, ProductReviewsParams, ReviewPayload } from "@/types";
 import { PRODUCTS_KEY } from "./useProducts";
 
 export const PRODUCT_REVIEWS_KEY = "reviews";
@@ -10,10 +10,10 @@ export const ADMIN_REVIEWS_KEY = "admin-reviews";
 const getErrorMessage = (error: { response?: { data?: { message?: string } } }, fallback: string) =>
   error?.response?.data?.message ?? fallback;
 
-export function useProductReviews(productId: string) {
+export function useProductReviews(productId: string, params?: ProductReviewsParams) {
   return useQuery({
-    queryKey: [PRODUCT_REVIEWS_KEY, productId],
-    queryFn: () => reviewService.getProductReviews(productId),
+    queryKey: [PRODUCT_REVIEWS_KEY, productId, params],
+    queryFn: () => reviewService.getProductReviews(productId, params),
     enabled: !!productId,
   });
 }

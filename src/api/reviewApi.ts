@@ -5,11 +5,17 @@ import {
   ReviewPayload,
   AdminReviewListParams,
   AdminReviewListResponse,
+  ProductReviewsParams,
 } from "@/types";
 
 export const reviewApi = {
-  async getProductReviews(productId: string): Promise<ReviewListResponse> {
-    const { data } = await apiClient.get<ReviewListResponse>(`/products/${productId}/reviews`);
+  async getProductReviews(
+    productId: string,
+    params?: ProductReviewsParams,
+  ): Promise<ReviewListResponse> {
+    const { data } = await apiClient.get<ReviewListResponse>(`/products/${productId}/reviews`, {
+      params,
+    });
     return data;
   },
 

@@ -193,7 +193,14 @@ export default function OrderDetailPage() {
               <CreditCard size={15} className="text-amber-500" />
               <h4 className="font-semibold text-gray-900 dark:text-white">Payment info</h4>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-300">Method: {order.paymentMethod === "cash" ? "Cash on Delivery" : "Banking transfer"}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Method:{" "}
+              {order.paymentMethod === "cash"
+                ? "Cash on Delivery"
+                : order.paymentMethod === "vnpay"
+                  ? "VNPay"
+                  : "Banking transfer"}
+            </p>
             <p className="text-sm text-gray-600 dark:text-gray-300">Status: {order.paymentStatus}</p>
           </div>
 

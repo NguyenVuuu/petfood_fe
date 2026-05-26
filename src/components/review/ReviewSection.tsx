@@ -1,4 +1,5 @@
-﻿import { Link } from "react-router-dom";
+﻿import { useState } from "react";
+import { Link } from "react-router-dom";
 import { MessageCircleMore } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -15,7 +16,11 @@ const breakdownRows = [5, 4, 3, 2, 1] as const;
 
 export function ReviewSection({ productId }: ReviewSectionProps) {
   const { isAuthenticated } = useAppSelector((state) => state.auth);
-  const { data, isLoading, error, refetch } = useProductReviews(productId);
+  const [ratingFilter, setRatingFilter] = useState<number | undefined>(undefined);
+  const { data, isLoading, error, refetch } = useProductReviews(productId, {
+    rating: ratingFilter,
+    limit: 50,
+  });
   const reviews = data?.reviews ?? [];
   const summary = data?.summary;
   const totalReviews = summary?.totalReviews ?? 0;
@@ -26,7 +31,7 @@ export function ReviewSection({ productId }: ReviewSectionProps) {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Customer Reviews</h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Reviews are written by customers with completed and paid orders.
+            Reviews are written by customers with completed and paid orders. Nội dung được kiểm duyệt tự động.
           </p>
         </div>
 
@@ -58,23 +63,55 @@ export function ReviewSection({ productId }: ReviewSectionProps) {
           />
 
           <div className="mt-5 space-y-2">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                Lọc theo sao
+              </p>
+              {ratingFilter !== undefined && (
+                <button
+                  type="button"
+                  onClick={() => setRatingFilter(undefined)}
+                  className="text-xs font-medium text-amber-600 hover:underline dark:text-amber-400"
+                >
+                  Bỏ lọc
+                </button>
+              )}
+            </div>
             {breakdownRows.map((star) => {
               const count = summary?.ratingBreakdown?.[star] ?? 0;
               const percent = totalReviews > 0 ? (count / totalReviews) * 100 : 0;
+              const isActive = ratingFilter === star;
               return (
-                <div key={star} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                  <span className="w-8">{star}★</span>
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRatingFilter(isActive ? undefined : star)}
+                  disabled={count === 0}
+                  className={`flex w-full items-center gap-2 rounded-lg px-1 py-1 text-xs transition ${
+                    isActive
+                      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                      : "text-gray-500 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-400 dark:hover:bg-gray-700/50"
+                  }`}
+                >
+                  <span className="w-8 text-left">{star}★</span>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                     <div className="h-full rounded-full bg-amber-400" style={{ width: `${percent}%` }} />
                   </div>
                   <span className="w-8 text-right">{count}</span>
-                </div>
+                </button>
               );
             })}
           </div>
         </div>
 
         <div>
+          {ratingFilter !== undefined && (
+            <p className="mb-3 text-sm text-gray-600 dark:text-gray-300">
+              Đang hiển thị đánh giá <span className="font-semibold text-amber-600">{ratingFilter} sao</span>
+              {reviews.length > 0 ? ` (${reviews.length})` : ""}
+            </p>
+          )}
+
           {error ? (
             <EmptyState
               icon={<MessageCircleMore size={28} />}
@@ -90,13 +127,26 @@ export function ReviewSection({ productId }: ReviewSectionProps) {
             </div>
           ) : reviews.length > 0 ? (
             <div className="space-y-4">
-              {reviews.map((review) => <ReviewCard key={review._id} review={review} />)}
+              {reviews.map((review) => (
+                <ReviewCard key={review._id} review={review} />
+              ))}
             </div>
           ) : (
             <EmptyState
               icon={<MessageCircleMore size={28} />}
-              title="No reviews yet"
-              description="Once customers complete paid orders, their reviews will appear here."
+              title={ratingFilter ? "No reviews for this rating" : "No reviews yet"}
+              description={
+                ratingFilter
+                  ? "Thử chọn mức sao khác hoặc bỏ lọc."
+                  : "Once customers complete paid orders, their reviews will appear here."
+              }
+              action={
+                ratingFilter ? (
+                  <Button type="button" variant="outline" onClick={() => setRatingFilter(undefined)}>
+                    Xem tất cả
+                  </Button>
+                ) : undefined
+              }
             />
           )}
         </div>

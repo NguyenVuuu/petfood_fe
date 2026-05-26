@@ -64,7 +64,7 @@ export default function CheckoutPage() {
   const isDirectBuy = directBuyState?.mode === "buy_now";
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
-  const [paymentMethod, setPaymentMethod] = useState<"cash" | "banking">("cash");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "banking" | "vnpay">("cash");
   const [note, setNote] = useState("");
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [couponDialogOpen, setCouponDialogOpen] = useState(false);
@@ -184,6 +184,11 @@ export default function CheckoutPage() {
       if (result.nextAction === "UPLOAD_BANKING_PROOF") {
         toast.info("Please upload your bank transfer proof to complete payment confirmation.");
         navigate(`/payment/upload-proof/${result.order._id}`);
+      } else if (result.nextAction === "REDIRECT_VNPAY" && result.paymentUrl) {
+        toast.info("Đang chuyển đến trang thanh toán VNPay...");
+        navigate(`/payment/vnpay`, {
+          state: { paymentUrl: result.paymentUrl, orderId: result.order._id },
+        });
       } else {
         toast.success("Order created successfully");
         navigate(`/my-account/orders/${result.order._id}`);
@@ -390,10 +395,26 @@ export default function CheckoutPage() {
                   onChange={() => setPaymentMethod("banking")}
                 />
               </label>
-              <div className="rounded-xl border border-dashed border-gray-300 p-3 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                VNPay <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">Coming soon</span>
-              </div>
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-gray-200 p-3 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  <QrCode size={16} /> VNPay (ATM / Visa / QR)
+                </div>
+                <input
+                  type="radio"
+                  checked={paymentMethod === "vnpay"}
+                  onChange={() => setPaymentMethod("vnpay")}
+                />
+              </label>
             </div>
+
+            {paymentMethod === "vnpay" && (
+              <div className="mt-4 space-y-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm dark:border-emerald-900/40 dark:bg-emerald-900/20">
+                <p className="font-semibold text-emerald-700 dark:text-emerald-300">Thanh toán VNPay</p>
+                <p className="text-emerald-700/90 dark:text-emerald-300/90">
+                  Sau khi đặt hàng, bạn sẽ được chuyển sang cổng VNPay (sandbox) để thanh toán. Đơn được xác nhận sau khi thanh toán thành công.
+                </p>
+              </div>
+            )}
 
             {paymentMethod === "banking" && (
               <div className="mt-4 space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm dark:border-blue-900/40 dark:bg-blue-900/20">
