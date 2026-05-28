@@ -102,17 +102,17 @@ export function Navbar() {
             />
             <input
               type="text"
-              placeholder="Tìm máy cho ăn tự động..."
+              placeholder={t("pawmart.search.desktopPlaceholder")}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-14 text-sm text-gray-900 placeholder-gray-400 transition-all focus:border-amber-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-100 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             />
             <button
               type="submit"
-              aria-label="Tìm kiếm"
+              aria-label={t("pawmart.common.search")}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
             >
-              Tìm
+              {t("pawmart.common.search")}
             </button>
           </form>
         </div>
@@ -122,7 +122,7 @@ export function Navbar() {
           <button
             onClick={toggleDark}
             className="rounded-xl p-2 text-gray-500 transition-colors hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-            aria-label="Toggle dark mode"
+            aria-label={t("pawmart.common.toggleDarkMode")}
           >
             {dark ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -201,7 +201,8 @@ export function Navbar() {
                         onClick={() => setUserMenuOpen(false)}
                         className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                       >
-                        <LayoutDashboard size={14} /> Support Dashboard
+                        <LayoutDashboard size={14} />{" "}
+                        {t("pawmart.products.supportDashboard")}
                       </Link>
                     )}
                     <Link
@@ -210,7 +211,7 @@ export function Navbar() {
                       className="flex min-h-11 items-center gap-2 rounded-lg px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-800"
                     >
                       <User size={14} />
-                      My Account
+                      {t("pawmart.nav.myAccount")}
                     </Link>
                     <button
                       onClick={() => {
@@ -269,17 +270,17 @@ export function Navbar() {
                   />
                   <input
                     type="text"
-                    placeholder="Tìm thức ăn cho mèo..."
+                    placeholder={t("pawmart.search.mobilePlaceholder")}
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
                     className="w-full rounded-xl border border-gray-200 bg-gray-50 py-2 pl-9 pr-14 text-sm focus:border-amber-400 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                   />
                   <button
                     type="submit"
-                    aria-label="Tìm kiếm"
+                    aria-label={t("pawmart.common.search")}
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-amber-500 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-600"
                   >
-                    Tìm
+                    {t("pawmart.common.search")}
                   </button>
                 </form>
               </div>
@@ -302,7 +303,7 @@ export function Navbar() {
                 onClick={() => setMenuOpen(false)}
                 className="block rounded-lg bg-amber-500 px-3 py-3 text-sm font-medium text-white hover:bg-amber-600"
               >
-                🐾 Đặt lịch hẹn
+                🐾 {t("pawmart.nav.appointment")}
               </Link>
 
               {/* Auth */}
@@ -315,7 +316,7 @@ export function Navbar() {
                         onClick={() => setMenuOpen(false)}
                         className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                       >
-                        Admin Dashboard
+                        {t("pawmart.products.adminDashboard")}
                       </Link>
                     )}
                     {isSupport && (
@@ -324,7 +325,7 @@ export function Navbar() {
                         onClick={() => setMenuOpen(false)}
                         className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                       >
-                        Support Dashboard
+                        {t("pawmart.products.supportDashboard")}
                       </Link>
                     )}
                     <Link
@@ -332,7 +333,7 @@ export function Navbar() {
                       onClick={() => setMenuOpen(false)}
                       className="block rounded-lg px-3 py-3 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-900"
                     >
-                      My Account
+                      {t("pawmart.nav.myAccount")}
                     </Link>
                     <button
                       onClick={() => {

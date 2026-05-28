@@ -1,25 +1,45 @@
-﻿import { Gift, History, Ticket, Trophy } from "lucide-react";
+import { Gift, History, Ticket, Trophy } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { SpinHistoryItem } from "@/api/rewardApi";
 import { Badge } from "@/components/ui/Badge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatCoins } from "./CoinBadge";
 
 export function SpinHistoryList({ history, isLoading }: { history: SpinHistoryItem[]; isLoading?: boolean }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language?.startsWith("jp") || i18n.language?.startsWith("ja")
+    ? "ja-JP"
+    : i18n.language?.startsWith("en")
+      ? "en-US"
+      : "vi-VN";
+
   if (isLoading) {
-    return <div className="space-y-3">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" />)}</div>;
+    return (
+      <div className="space-y-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="h-20 animate-pulse rounded-2xl bg-gray-100 dark:bg-gray-800" />
+        ))}
+      </div>
+    );
   }
 
   if (!history.length) {
-    return <EmptyState icon={<History size={28} />} title="Bạn chưa có lịch sử quay nào" description="Phần thưởng sẽ xuất hiện tại đây sau lượt quay Lucky Wheel đầu tiên." />;
+    return (
+      <EmptyState
+        icon={<History size={28} />}
+        title={t("pawmart.rewardsPages.historyEmptyTitle")}
+        description={t("pawmart.rewardsPages.historyEmptyDesc")}
+      />
+    );
   }
 
   return (
     <div className="overflow-hidden rounded-[1.5rem] border border-gray-100 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
       <div className="hidden grid-cols-[1.4fr_0.7fr_0.7fr_0.8fr] border-b border-gray-100 bg-gray-50 px-5 py-3 text-xs font-black uppercase tracking-wide text-gray-400 dark:border-gray-800 dark:bg-gray-950 md:grid">
-        <span>Phần thưởng</span>
-        <span>Loại</span>
+        <span>{t("pawmart.rewardsPages.reward")}</span>
+        <span>{t("pawmart.rewardsPages.type")}</span>
         <span>orderId</span>
-        <span>Thời gian</span>
+        <span>{t("pawmart.rewardsPages.time")}</span>
       </div>
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {history.map((item) => (
@@ -30,15 +50,28 @@ export function SpinHistoryList({ history, isLoading }: { history: SpinHistoryIt
               </div>
               <div>
                 <div className="font-bold text-gray-950 dark:text-white">{item.rewardLabel}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 md:hidden">{new Date(item.playedAt || item.createdAt || "").toLocaleString("vi-VN")}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 md:hidden">
+                  {new Date(item.playedAt || item.createdAt || "").toLocaleString(locale)}
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant={item.rewardType === "coin" ? "warning" : "info"}>{item.rewardType}</Badge>
-              {item.rewardType === "coin" ? <Badge variant="success">+{formatCoins(item.coinAmount)} xu</Badge> : <Badge variant="success"><Gift size={12} /> Coupon</Badge>}
+              <Badge variant={item.rewardType === "coin" ? "warning" : "info"}>
+                {item.rewardType === "coin" ? t("pawmart.rewardsPages.coin") : t("pawmart.rewardsPages.coupon")}
+              </Badge>
+              {item.rewardType === "coin" ? (
+                <Badge variant="success">
+                  +{formatCoins(item.coinAmount)}
+                  {t("pawmart.rewardsPages.coinSuffix")}
+                </Badge>
+              ) : (
+                <Badge variant="success"><Gift size={12} /> {t("pawmart.rewardsPages.coupon")}</Badge>
+              )}
             </div>
             <div>{item.orderId ? <Badge variant="outline">{item.orderId.slice(-8).toUpperCase()}</Badge> : <span className="text-sm text-gray-400">-</span>}</div>
-            <div className="hidden text-sm text-gray-500 dark:text-gray-400 md:block">{new Date(item.playedAt || item.createdAt || "").toLocaleString("vi-VN")}</div>
+            <div className="hidden text-sm text-gray-500 dark:text-gray-400 md:block">
+              {new Date(item.playedAt || item.createdAt || "").toLocaleString(locale)}
+            </div>
           </div>
         ))}
       </div>
