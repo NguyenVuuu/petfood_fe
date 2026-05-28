@@ -38,4 +38,33 @@ export const authService = {
     );
     return data;
   },
+
+  async forgotPassword(email: string): Promise<{
+    message: string;
+    cooldownSeconds?: number;
+    otpExpiresIn?: number;
+  }> {
+    const { data } = await apiClient.post<{
+      message: string;
+      cooldownSeconds?: number;
+      otpExpiresIn?: number;
+    }>(
+      "/auth/forgot-password",
+      { email },
+    );
+    return data;
+  },
+
+  async resetPassword(payload: {
+    email: string;
+    otp: string;
+    newPassword: string;
+    confirmPassword: string;
+  }): Promise<{ message: string }> {
+    const { data } = await apiClient.post<{ message: string }>(
+      "/auth/reset-password",
+      payload,
+    );
+    return data;
+  },
 };

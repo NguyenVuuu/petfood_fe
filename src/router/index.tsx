@@ -11,8 +11,12 @@ const CheckoutPage = lazy(() => import("@/pages/CheckoutPage"));
 const PaymentUploadProofPage = lazy(
   () => import("@/pages/PaymentUploadProofPage"),
 );
+const VnpayPage = lazy(() => import("@/pages/payment/VnpayPage"));
+const VnpayReturnPage = lazy(() => import("@/pages/payment/VnpayReturnPage"));
 const LoginPage = lazy(() => import("@/pages/LoginPage"));
 const RegisterPage = lazy(() => import("@/pages/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("@/pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("@/pages/ResetPasswordPage"));
 const WishlistPage = lazy(() => import("@/pages/WishlistPage"));
 const SupportDashboard = lazy(() => import("@/pages/support/SupportDashboard"));
 const RewardsOverviewPage = lazy(
@@ -138,6 +142,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "search",
+        element: (
+          <S>
+            <ProductListPage />
+          </S>
+        ),
+      },
+      {
         path: "products/:id",
         element: (
           <S>
@@ -177,6 +189,26 @@ export const router = createBrowserRouter([
           <RequireAuth>
             <S>
               <PaymentUploadProofPage />
+            </S>
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "payment/vnpay",
+        element: (
+          <RequireAuth>
+            <S>
+              <VnpayPage />
+            </S>
+          </RequireAuth>
+        ),
+      },
+      {
+        path: "payment/vnpay-return",
+        element: (
+          <RequireAuth>
+            <S>
+              <VnpayReturnPage />
             </S>
           </RequireAuth>
         ),
@@ -236,6 +268,22 @@ export const router = createBrowserRouter([
     element: (
       <S>
         <RegisterPage />
+      </S>
+    ),
+  },
+  {
+    path: "/forgot-password",
+    element: (
+      <S>
+        <ForgotPasswordPage />
+      </S>
+    ),
+  },
+  {
+    path: "/reset-password",
+    element: (
+      <S>
+        <ResetPasswordPage />
       </S>
     ),
   },

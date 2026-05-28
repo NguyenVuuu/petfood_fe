@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams, Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ShoppingCart,
   Heart,
@@ -8,6 +9,7 @@ import {
   Plus,
   Share2,
   Tag,
+  Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useProduct } from "@/hooks/useProducts";
@@ -19,13 +21,29 @@ import { Badge } from "@/components/ui/Badge";
 import { Rating } from "@/components/ui/Rating";
 import { ProductDetailSkeleton } from "@/components/ui/Skeleton";
 import { ReviewSection } from "@/components/review/ReviewSection";
+import { RECOMMENDATIONS_KEY } from "@/hooks/useRecommendations";
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: product, isLoading, error } = useProduct(id ?? "");
   const { addItem, getItemQuantity, updateQty, isInCart } = useCart();
   const { toggle, isWishlisted } = useWishlist();
   const [qty, setQty] = useState(1);
+
+  useEffect(() => {
+    if (!product?._id) return;
+    queryClient.invalidateQueries({
+      queryKey: [RECOMMENDATIONS_KEY, "products"],
+    });
+    const timer = window.setTimeout(() => {
+      queryClient.invalidateQueries({
+        queryKey: [RECOMMENDATIONS_KEY, "products"],
+      });
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [product?._id, queryClient]);
 
   if (isLoading) {
     return (
@@ -60,6 +78,25 @@ export default function ProductDetailPage() {
 
   const handleAddToCart = () => {
     addItem(product, qty);
+  };
+
+  const handleBuyNow = () => {
+    const checkoutState = {
+      mode: "buy_now" as const,
+      sourceProductId: product._id,
+      items: [
+        {
+          productId: product._id,
+          name: product.name,
+          price: product.price,
+          imageUrl: product.imageUrl,
+          quantity: qty,
+        },
+      ],
+    };
+
+    sessionStorage.setItem("directBuyCheckout", JSON.stringify(checkoutState));
+    navigate("/checkout", { state: checkoutState });
   };
 
   const handleShare = async () => {
@@ -190,15 +227,25 @@ export default function ProductDetailPage() {
           )}
 
           {/* Actions */}
-          <div className="flex gap-3">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
             <Button
               size="lg"
               onClick={handleAddToCart}
               disabled={product.stock === 0}
-              className="flex-1"
+              className="w-full"
             >
               <ShoppingCart size={18} />
               {product.stock === 0 ? "Out of Stock" : "Add to Cart"}
+            </Button>
+            <Button
+              size="lg"
+              variant="secondary"
+              onClick={handleBuyNow}
+              disabled={product.stock === 0}
+              className="w-full"
+            >
+              <Zap size={18} />
+              Mua ngay
             </Button>
             <Button variant="outline" size="icon" onClick={handleShare}>
               <Share2 size={18} />
